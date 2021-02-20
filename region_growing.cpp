@@ -4,7 +4,8 @@
 
 #include "region_growing.h"
 #include <cmath>
-
+#include <iostream>
+#include "queue"
 region_growing::region_growing(int r, float tau, float deviation_thresh, int min_region_size) :
         r(r),
         tau(tau),
@@ -21,11 +22,10 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::vector<float> D;
     for (int i = 0; i < cls_bin.rows; ++i) {
         for (int j = 0; j < cls_bin.cols; ++j) {
-            if (cls_bin.at<int>(i, j) == 255) {
+            if (cls_bin.at<bool>(i, j)) {
                 G[0].push_back(i); // TO OPTIMISE . maybe we can preallocate G
                 G[1].push_back(j);
                 D.push_back(cls_map.at<float>(i, j));
-
             }
         }
     }
@@ -40,6 +40,7 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     // when v contains elements of equal values
     stable_sort(idx.begin(), idx.end(),
                 [&D](size_t i1, size_t i2) { return D[i1] < D[i2]; });
+
 
     std::vector<std::vector<int>> S(2, std::vector<int>(D.size()));
 
@@ -73,7 +74,6 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
         std::vector<std::vector<int>> region = region_grouping(root, cls_map, angle_map, cls_bin, U);
 
         if (region[0].size() > min_region_size) {
-
             regions[i] = region;
         } else i--;
     }
@@ -84,19 +84,19 @@ std::vector<std::vector<int>>
 region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::Mat &angle_map,
                                 const cv::Mat &cls_bin, std::vector<std::vector<bool>> &U) const {
     std::vector<std::vector<int>> region(2);
-    double Theta_region = angle_map.at<double>(root[0], root[1]) * M_PI;
-    double region_mean = cls_map.at<double>(root[0], root[1]);
-    double Vx = cos(Theta_region);
-    double Vy = sin(Theta_region);
+    float Theta_region = angle_map.at<float>(root[0], root[1]) * M_PI;
+    float region_mean = cls_map.at<float>(root[0], root[1]);
+    float Vx = cos(Theta_region);
+    float Vy = sin(Theta_region);
 
     region[0].push_back(root[0]);
     region[1].push_back(root[1]);
 
     int neighborhood_max_size = (2 * r + 1) * (2 * r + 1);
 
-    std::vector<std::vector<int>> newly_added(2);
-    newly_added[0].push_back(root[0]);
-    newly_added[1].push_back(root[1]);
+    std::vector<std::queue <int>> newly_added(2);
+    newly_added[0].push(root[0]);
+    newly_added[1].push(root[1]);
     U[root[0]][root[1]] = true;
     int region_len = 1;
 
@@ -110,33 +110,31 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
 
     while (!newly_added[0].empty()) {
 
-        neighborhood_size = get_r_neighborhood(newly_added[0].back(), newly_added[1].back(), neighborhood, cls_bin, U);
-        newly_added[0].pop_back();
-        newly_added[1].pop_back();
+        neighborhood_size = get_r_neighborhood(newly_added[0].front(), newly_added[1].front(), neighborhood, cls_bin, U);
+        newly_added[0].pop();
+        newly_added[1].pop();
 
         for (int j = 0; j < neighborhood_size; ++j) {
             int x = neighborhood[0][j];
             int y = neighborhood[1][j];
-            double ang = angle_map.at<double>(x, y);
-            double probability = cls_map.at<double>(x, y);
-            if (2 * (1 - cos(2 * (ang * M_PI - Theta_region)))
+            float ang = angle_map.at<float>(x, y)* M_PI;
+            float probability = cls_map.at<float>(x, y);
+            if (2 * (1 - cos(2 * (ang - Theta_region)))
                 < tau and
                 abs(region_mean - probability) < deviation_thresh) {
                 region[0].push_back(x);
                 region[1].push_back(y);
-                newly_added[0].push_back(x);
-                newly_added[1].push_back(y);
+                newly_added[0].push(x);
+                newly_added[1].push(y);
 
                 U[x][y] = true;
-                Vx += cos(ang * M_PI);
-                Vy += sin(ang * M_PI);
+                Vx += cos(ang);
+                Vy += sin(ang);
                 Theta_region = acos(Vx / sqrt(Vx * Vx + Vy * Vy));
                 region_len++;
                 region_mean = (region_mean * (region_len - 1) + probability) / region_len;
             }
         }
-
-
     }
 
 //    if (region[0].size() > min_region_size) {
@@ -148,6 +146,7 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
 int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const cv::Mat &cls_bin,
                                        std::vector<std::vector<bool>> &U) const {
     assert(r == 1);
+    //??? TO OPTIMISE . x - 1 >= 0 and so on is always true, due to the construction of cls_bin(no active borders)?
     int neighborhood_size = 0;
     int max_size = cls_bin.cols;
     if (x - 1 >= 0) {
