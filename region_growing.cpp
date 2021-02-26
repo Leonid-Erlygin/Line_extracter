@@ -20,9 +20,11 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
 
     std::vector<std::vector<int>> G(2);
     std::vector<float> D;
+
+
     for (int i = 0; i < cls_bin.rows; ++i) {
         for (int j = 0; j < cls_bin.cols; ++j) {
-            if (cls_bin.at<bool>(i, j)) {
+            if (cls_bin.at<uchar>(i, j)) {
                 G[0].push_back(i); // TO OPTIMISE . maybe we can preallocate G
                 G[1].push_back(j);
                 D.push_back(cls_map.at<float>(i, j));
@@ -53,24 +55,23 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::vector<std::vector<bool>> U(cls_map.rows, std::vector<bool>(cls_map.cols));
 
     int i = 0;
-    while (!S[0].empty()) {
+    int S_index = S[0].size() - 1;
+
+    while (S_index>=0) {
         i++;
 
         int root[2];
-        root[0] = S[0].back();
-        root[1] = S[1].back();
-        S[0].pop_back();
-        S[1].pop_back();
-
+        root[0] = S[0][S_index];
+        root[1] = S[1][S_index];
+        S_index--;
         while (U[root[0]][root[1]]) {
-            if (S[0].empty()) break;
+            if (S_index < 0) break;
 
-            root[0] = S[0].back();
-            root[1] = S[1].back();
-            S[0].pop_back();
-            S[1].pop_back();
+            root[0] = S[0][S_index];
+            root[1] = S[1][S_index];
+            S_index--;
         }
-        if (S[0].empty()) break;
+        if (S_index < 0) break;
         std::vector<std::vector<int>> region = region_grouping(root, cls_map, angle_map, cls_bin, U);
 
         if (region[0].size() > min_region_size) {
@@ -150,44 +151,44 @@ int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const c
     int neighborhood_size = 0;
     int max_size = cls_bin.cols;
     if (x - 1 >= 0) {
-        if (y - 1 >= 0 and cls_bin.at<bool>(x - 1, y - 1) and !U[x - 1][y - 1]) {
+        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
             neighborhood[0][neighborhood_size] = x - 1;
             neighborhood[1][neighborhood_size] = y - 1;
             neighborhood_size++;
         }
-        if (cls_bin.at<bool>(x - 1, y) and !U[x - 1][y]) {
+        if (cls_bin.at<uchar>(x - 1, y) and !U[x - 1][y]) {
             neighborhood[0][neighborhood_size] = x - 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-        if (y + 1 < max_size and cls_bin.at<bool>(x - 1, y + 1) and !U[x - 1][y + 1]) {
+        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
             neighborhood[0][neighborhood_size] = x - 1;
             neighborhood[1][neighborhood_size] = y + 1;
             neighborhood_size++;
         }
     }
-    if (y - 1 >= 0 and cls_bin.at<bool>(x, y - 1) and !U[x][y - 1]) {
+    if (y - 1 >= 0 and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
         neighborhood[0][neighborhood_size] = x;
         neighborhood[1][neighborhood_size] = y - 1;
         neighborhood_size++;
     }
-    if (y + 1 < max_size and cls_bin.at<bool>(x, y + 1) and !U[x][y + 1]) {
+    if (y + 1 < max_size and cls_bin.at<uchar>(x, y + 1) and !U[x][y + 1]) {
         neighborhood[0][neighborhood_size] = x;
         neighborhood[1][neighborhood_size] = y + 1;
         neighborhood_size++;
     }
     if (x + 1 < max_size) {
-        if (y - 1 >= 0 and cls_bin.at<bool>(x + 1, y - 1) and !U[x + 1][y - 1]) {
+        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
             neighborhood[0][neighborhood_size] = x + 1;
             neighborhood[1][neighborhood_size] = y - 1;
             neighborhood_size++;
         }
-        if (cls_bin.at<bool>(x + 1, y) and !U[x + 1][y]) {
+        if (cls_bin.at<uchar>(x + 1, y) and !U[x + 1][y]) {
             neighborhood[0][neighborhood_size] = x + 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-        if (y + 1 < max_size and cls_bin.at<bool>(x + 1, y + 1) and !U[x + 1][y + 1]) {
+        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
             neighborhood[0][neighborhood_size] = x + 1;
             neighborhood[1][neighborhood_size] = y + 1;
             neighborhood_size++;
