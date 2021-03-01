@@ -8,7 +8,7 @@
 segment_extractor::segment_extractor() = default;
 
 std::vector<std::vector<float>> segment_extractor::extract(const std::vector<std::vector<float>> &new_region,
-                                                           float region_mean, float S) {
+                                                           float region_mean) {
     float min = INT32_MAX;
     float max = INT32_MIN;
     for (int i = 0; i < new_region[0].size(); ++i) {

@@ -28,7 +28,7 @@ std::vector<std::vector<float>> compute_eigen_coords::apply_trans(const std::vec
     }
 
     region_mean = curr_region_mean / S0;
-    S = S0;
+    confidence = S0/region[0].size();
     return new_coords;
 }
 

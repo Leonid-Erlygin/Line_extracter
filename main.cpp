@@ -14,6 +14,7 @@
 #include "segment_extractor.h"
 #include <chrono>
 #include <random>
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -87,47 +88,70 @@ void draw(const cv::Mat &cls_bin) {
     imshow("F", cls_bin);
     waitKey(0);
 }
-
-int main() {
-    Mat cls_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/cls_map.tiff", IMREAD_ANYDEPTH);
-    Mat angle_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/angle_map.tiff", IMREAD_ANYDEPTH);
-    Mat image_fix;
 //    image.convertTo(image_fix, CV_8UC1);
 //    cout<<type2str(image.type())<<'\n';
 
-
+int main() {
+    float thresh = 0.8;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    roi_extraction roi("local thresh", 0.5, 2, 11);
-    region_growing rg(1, 0.05, 0.45, 20);
-    Mat cls_bin = roi.get_roi(cls_map);
-    //draw(cls_bin);
-    std::map<int, std::vector<std::vector<int>>> regions = rg.get_regions(cls_map, angle_map, cls_bin);
-//    for (int i = 1; i <=regions.size(); ++i) {
-//        draw_all_regions(regions, i);
-//
-//    }
-//    waitKey(0);
-    compute_eigen_coords compute_eigen;
-    segment_extractor seg_extractor;
-    Mat final(512, 512, CV_8UC1, Scalar(0, 0, 0));
-    for (int i = 1; i <= regions.size(); ++i) {
-        std::vector<std::vector<int>> region = regions[i];
 
-        std::vector<std::vector<float>> A = compute_eigen.compute_transformation_matrix(region, cls_map);
-        std::vector<std::vector<float>> new_coords = compute_eigen.apply_trans(A, region, cls_map);
-        std::vector<std::vector<float>> points_new = seg_extractor.extract(new_coords, compute_eigen.region_mean,
-                                                                           compute_eigen.S);
-        std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
-        line(final, Point(int(points[1][0]), int(points[0][0])), Point(int(points[1][1]), int(points[0][1])),
-             Scalar(255, 255, 255), 2);
+    for (int i = 0; i < 22; ++i) {
+        vector<vector<int>> predictions(4);
+
+        Mat cls_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/cls_map" + to_string(i) + ".tiff",
+                             IMREAD_ANYDEPTH);
+        Mat angle_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/angle_map" + to_string(i) + ".tiff",
+                               IMREAD_ANYDEPTH);
+
+        roi_extraction roi("local thresh", 0.7, 2, 11);
+        region_growing rg(1, 0.02, 0.35, 20);
+        compute_eigen_coords compute_eigen;
+        segment_extractor seg_extractor;
+
+        Mat cls_bin = roi.get_roi(cls_map);
+        std::map<int, std::vector<std::vector<int>>> regions = rg.get_regions(cls_map, angle_map, cls_bin);
+
+        for (int j = 1; j <= regions.size(); ++j) {
+            std::vector<std::vector<int>> region = regions[j];
+
+            std::vector<std::vector<float>> A = compute_eigen.compute_transformation_matrix(region, cls_map);
+            std::vector<std::vector<float>> new_coords = compute_eigen.apply_trans(A, region, cls_map);
+            std::vector<std::vector<float>> points_new = seg_extractor.extract(new_coords, compute_eigen.region_mean
+            );
+            std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
+
+
+            if (compute_eigen.confidence > thresh) {
+                predictions[0].push_back(int(points[1][0]));
+                predictions[1].push_back(int(points[0][0]));
+                predictions[2].push_back(int(points[1][1]));
+                predictions[3].push_back(int(points[0][1]));
+            }
+        }
+        Mat final(512, 512, CV_8UC1, Scalar(0, 0, 0));
+        for (int k = 0; k < predictions[0].size(); ++k) {
+            line(final, Point(predictions[0][k], predictions[1][k]), Point(predictions[2][k], predictions[3][k]),
+                 Scalar(255, 255, 255), 2);
+        }
+        namedWindow("F", WINDOW_AUTOSIZE);
+        imshow("F", final);
+        break;
+//        ofstream file;
+//        file.open ("/home/leonid/trunk/line_segment_detection/Cpp_pred/"+to_string(i)+".csv");
+//        for (int j = 0; j < predictions[0].size(); ++j) {
+//            file << predictions[0][j] << " "<< predictions[1][j] << " "<< predictions[2][j] << " "<< predictions[3][j] << "\n";
+//        }
+//
+//        file.close();
 
     }
+
+
+//    line(final, Point(int(points[1][0]), int(points[0][0])), Point(int(points[1][1]), int(points[0][1])),
+//         Scalar(255, 255, 255), 2);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
               << "[µs]" << std::endl;
-    namedWindow("F", WINDOW_AUTOSIZE);
-    imshow("F", final);
-    draw_all_regions(regions, 0);
     waitKey(0);
     return 0;
 }

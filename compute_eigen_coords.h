@@ -24,7 +24,7 @@ public:
     apply_inverse_trans(const std::vector<std::vector<float>> &transformation,
                         const std::vector<std::vector<float>> &points_new) const;
     float region_mean = 0;
-    float S = 0;
+    float confidence = 0;
 private:
 
     float x_mean = 0;
