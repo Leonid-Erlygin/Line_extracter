@@ -160,28 +160,28 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
     return region;
 }
 
-int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const cv::Mat &cls_bin,
+inline int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const cv::Mat &cls_bin,
                                        std::vector<std::vector<bool>> &U) const {
     assert(r == 1);
     //??? TO OPTIMISE . x - 1 >= 0 and so on is always true, due to the construction of cls_bin(no active borders)?
     int neighborhood_size = 0;
     int max_size = cls_bin.cols;
     if (x - 1 >= 0) {
-        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
-            neighborhood[0][neighborhood_size] = x - 1;
-            neighborhood[1][neighborhood_size] = y - 1;
-            neighborhood_size++;
-        }
+//        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
+//            neighborhood[0][neighborhood_size] = x - 1;
+//            neighborhood[1][neighborhood_size] = y - 1;
+//            neighborhood_size++;
+//        }
         if (cls_bin.at<uchar>(x - 1, y) and !U[x - 1][y]) {
             neighborhood[0][neighborhood_size] = x - 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
-            neighborhood[0][neighborhood_size] = x - 1;
-            neighborhood[1][neighborhood_size] = y + 1;
-            neighborhood_size++;
-        }
+//        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
+//            neighborhood[0][neighborhood_size] = x - 1;
+//            neighborhood[1][neighborhood_size] = y + 1;
+//            neighborhood_size++;
+//        }
     }
     if (y - 1 >= 0 and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
         neighborhood[0][neighborhood_size] = x;
@@ -194,21 +194,65 @@ int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const c
         neighborhood_size++;
     }
     if (x + 1 < max_size) {
-        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
-            neighborhood[0][neighborhood_size] = x + 1;
-            neighborhood[1][neighborhood_size] = y - 1;
-            neighborhood_size++;
-        }
+//        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
+//            neighborhood[0][neighborhood_size] = x + 1;
+//            neighborhood[1][neighborhood_size] = y - 1;
+//            neighborhood_size++;
+//        }
         if (cls_bin.at<uchar>(x + 1, y) and !U[x + 1][y]) {
             neighborhood[0][neighborhood_size] = x + 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
-            neighborhood[0][neighborhood_size] = x + 1;
-            neighborhood[1][neighborhood_size] = y + 1;
-            neighborhood_size++;
-        }
+//        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
+//            neighborhood[0][neighborhood_size] = x + 1;
+//            neighborhood[1][neighborhood_size] = y + 1;
+//            neighborhood_size++;
+//        }
     }
+//    if (x - 1 >= 0) {
+//        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
+//            neighborhood[0][neighborhood_size] = x - 1;
+//            neighborhood[1][neighborhood_size] = y - 1;
+//            neighborhood_size++;
+//        }
+//        if (cls_bin.at<uchar>(x - 1, y) and !U[x - 1][y]) {
+//            neighborhood[0][neighborhood_size] = x - 1;
+//            neighborhood[1][neighborhood_size] = y;
+//            neighborhood_size++;
+//        }
+//        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
+//            neighborhood[0][neighborhood_size] = x - 1;
+//            neighborhood[1][neighborhood_size] = y + 1;
+//            neighborhood_size++;
+//        }
+//    }
+//    if (y - 1 >= 0 and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
+//        neighborhood[0][neighborhood_size] = x;
+//        neighborhood[1][neighborhood_size] = y - 1;
+//        neighborhood_size++;
+//    }
+//    if (y + 1 < max_size and cls_bin.at<uchar>(x, y + 1) and !U[x][y + 1]) {
+//        neighborhood[0][neighborhood_size] = x;
+//        neighborhood[1][neighborhood_size] = y + 1;
+//        neighborhood_size++;
+//    }
+//    if (x + 1 < max_size) {
+//        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
+//            neighborhood[0][neighborhood_size] = x + 1;
+//            neighborhood[1][neighborhood_size] = y - 1;
+//            neighborhood_size++;
+//        }
+//        if (cls_bin.at<uchar>(x + 1, y) and !U[x + 1][y]) {
+//            neighborhood[0][neighborhood_size] = x + 1;
+//            neighborhood[1][neighborhood_size] = y;
+//            neighborhood_size++;
+//        }
+//        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
+//            neighborhood[0][neighborhood_size] = x + 1;
+//            neighborhood[1][neighborhood_size] = y + 1;
+//            neighborhood_size++;
+//        }
+//    }
     return neighborhood_size;
 }
