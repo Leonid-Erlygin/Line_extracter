@@ -12,8 +12,6 @@ std::vector<std::vector<float>> compute_eigen_coords::apply_trans(const std::vec
     std::vector<std::vector<float>> new_coords(2, std::vector<float>(region[0].size()));
     float cos_alpha = transformation[0][0];
     float sin_alpha = transformation[1][0];
-    float S0 = 0;
-    float curr_region_mean = 0;
     for (int i = 0; i < region[0].size(); ++i) {
         float x = (region[0][i] - x_mean);
         float y = (region[1][i] - y_mean);
@@ -23,12 +21,7 @@ std::vector<std::vector<float>> compute_eigen_coords::apply_trans(const std::vec
         if (cls_map.data!=NULL) {
             weight = cls_map.at<float>(region[0][i], region[1][i]);
         }
-        curr_region_mean += (new_coords[1][i] * weight);
-        S0 += weight;
     }
-
-    region_mean = curr_region_mean / S0;
-    confidence = S0/region[0].size();
     return new_coords;
 }
 

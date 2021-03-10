@@ -1,20 +1,15 @@
 
 #include <iostream>
 #include "opencv2/core/core.hpp"
-#include <opencv2/objdetect.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/videoio.hpp>
-#include <iomanip>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/core/cuda.hpp>
+
 #include "roi_extraction.h"
 #include "region_growing.h"
 #include "compute_eigen_coords.h"
+#include "region_splitter.h"
 #include "segment_extractor.h"
 #include <chrono>
-#include <random>
-#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -98,55 +93,84 @@ int main() {
     // current avg_time on test_image = 108466 (N = 100) (4 neighbors check)
     // current avg_time on test_image = 31702 (N = 100) (default, 256 x 256)
     // current avg_time on test_image = 30031 (N = 500) (default, 256 x 256, 4 neighbors check )
-    int N = 100;
+    // current avg_time on test_image = 12347 (N = 1000) (default, 256 x 256, parallel)
+    // current avg_time on test_image = 46919 (N = 500) (default, 512 x 512, parallel)
+    // current avg_time on test_image = 11454 (N = 1000) (default, 256 x 256, parallel, with region splitter)
+    int N = 1;
     for (int i = test_image; i < 22; ++i) {
 
 
-        Mat cls_map0 = imread("/home/leonid/trunk/line_segment_detection/for_cpp/cls_map" + to_string(i) + ".tiff",
+        Mat cls_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/cls_map" + to_string(i) + ".tiff",
                              IMREAD_ANYDEPTH);
-        Mat angle_map0 = imread("/home/leonid/trunk/line_segment_detection/for_cpp/angle_map" + to_string(i) + ".tiff",
+        Mat angle_map = imread("/home/leonid/trunk/line_segment_detection/for_cpp/angle_map" + to_string(i) + ".tiff",
                                IMREAD_ANYDEPTH);
 
-        Mat cls_map;
-        Mat angle_map;
-        cv::resize(cls_map0, cls_map, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST );
-        cv::resize(angle_map0, angle_map, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST );
+//        Mat cls_map;
+//        Mat angle_map;
+//        cv::resize(cls_map0, cls_map, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST );
+//        cv::resize(angle_map0, angle_map, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST );
 
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        for (int j = 0; j < N; ++j) {
+        for (int k = 0; k < N; ++k) {
             vector<vector<int>> predictions(4);
             roi_extraction roi("local thresh", 0.7, 2, 11);
             region_growing rg(1, 0.02, 0.35, 20);
             compute_eigen_coords compute_eigen;
             segment_extractor seg_extractor;
+            region_splitter rs(10, 0.2, 0.1);
 
             Mat cls_bin = roi.get_roi(cls_map);
-            std::map<int, std::vector<std::vector<int>>> regions = rg.get_regions(cls_map, angle_map, cls_bin);
 
-            for (int j = 1; j <= regions.size(); ++j) {
-                std::vector<std::vector<int>> region = regions[j];
+            std::vector<std::vector<std::vector<int>>> regions = rg.get_regions(cls_map, angle_map, cls_bin);
+            int pp = 0;
+            for (const auto &region : regions) {
+//                cout<<pp<<'\n';
+//                if (pp == 6){
+//                    int x = 1;
+//                }
+//                pp++;
 
                 std::vector<std::vector<float>> A = compute_eigen.compute_transformation_matrix(region, cls_map);
                 std::vector<std::vector<float>> new_coords = compute_eigen.apply_trans(A, region, cls_map);
-                std::vector<std::vector<float>> points_new = seg_extractor.extract(new_coords, compute_eigen.region_mean
-                );
-                std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
+
+                std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<float>>>> splitted_regions_and_conf = rs.get_splitted_regions_with_conf_and_weighted_mean(region,new_coords,cls_map);
+
+                std::vector<std::vector<float>>& means_and_conf = splitted_regions_and_conf.first;
+                std::vector<std::vector<std::vector<float>>>& splitted_regions = splitted_regions_and_conf.second;
+
+//                cout<<splitted_regions.size()<<'\n';
+//
+//                if (splitted_regions.size() > 1){
+//                    cout<<splitted_regions.size()<<'\n';
+//                }
+                for (int j = 0; j < splitted_regions.size(); ++j) {
+                    float region_mean = means_and_conf[0][j];
+                    float confidence =  means_and_conf[1][j];
+
+                    std::vector<std::vector<float>> points_new = seg_extractor.extract(splitted_regions[j], region_mean
+                    );
+
+                    std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
 
 
-                if (compute_eigen.confidence > thresh) {
-                    predictions[0].push_back(int(points[1][0]));
-                    predictions[1].push_back(int(points[0][0]));
-                    predictions[2].push_back(int(points[1][1]));
-                    predictions[3].push_back(int(points[0][1]));
+                    if (confidence > thresh) {
+                        predictions[0].push_back(int(points[1][0]));
+                        predictions[1].push_back(int(points[0][0]));
+                        predictions[2].push_back(int(points[1][1]));
+                        predictions[3].push_back(int(points[0][1]));
+                    }
                 }
+
             }
-//            Mat final(cls_map.rows * 2, cls_map.cols * 2, CV_8UC1, Scalar(0, 0, 0));
-//            for (int k = 0; k < predictions[0].size(); ++k) {
-//                line(final, Point(predictions[0][k] * 2, predictions[1][k] * 2), Point(predictions[2][k]* 2, predictions[3][k]*2),
-//                     Scalar(255, 255, 255), 2);
-//            }
-//            namedWindow("F", WINDOW_AUTOSIZE);
-//            imshow("F", final);
+            Mat final(cls_map.rows * 2, cls_map.cols * 2, CV_8UC1, Scalar(0, 0, 0));
+            for (int p = 0; p < predictions[0].size(); ++p) {
+                line(final, Point(predictions[0][p] * 2, predictions[1][p] * 2),
+                     Point(predictions[2][p] * 2, predictions[3][p] * 2),
+                     Scalar(255, 255, 255), 1);
+            }
+            namedWindow("F", WINDOW_AUTOSIZE);
+            imshow("F", final);
+            waitKey(0);
         }
 
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
@@ -166,6 +190,6 @@ int main() {
 
     }
 
-    waitKey(0);
+
     return 0;
 }

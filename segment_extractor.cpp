@@ -2,7 +2,6 @@
 // Created by leonid on 14.02.2021.
 //
 
-#include <iostream>
 #include "segment_extractor.h"
 
 segment_extractor::segment_extractor() = default;

@@ -4,7 +4,6 @@
 
 #include "region_growing.h"
 #include <cmath>
-#include <iostream>
 #include "queue"
 
 region_growing::region_growing(int r, float tau, float deviation_thresh, int min_region_size) :
@@ -15,16 +14,54 @@ region_growing::region_growing(int r, float tau, float deviation_thresh, int min
 }
 
 
-std::map<int, std::vector<std::vector<int>>>
+std::vector<std::vector<std::vector<int>>>
 region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, const cv::Mat &cls_bin) {
-    std::map<int, std::vector<std::vector<int>>> regions;
+    std::vector<std::vector<std::vector<int>>> regions1;
+    std::vector<std::vector<std::vector<int>>> regions2;
+    std::vector<std::vector<std::vector<int>>> regions3;
+    std::vector<std::vector<std::vector<int>>> regions4;
 
+    std::vector<std::vector<bool>> U(angle_map.rows, std::vector<bool>(angle_map.cols));
+
+    std::thread th1(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
+                    std::ref(cls_bin), std::ref(regions1), std::ref(U), 0, 0, 0, angle_map.rows / 2,
+                    angle_map.cols / 2);
+    std::thread th2(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
+                    std::ref(cls_bin), std::ref(regions2), std::ref(U), 0, 0, angle_map.cols / 2, angle_map.rows / 2,
+                    angle_map.cols);
+    std::thread th3(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
+                    std::ref(cls_bin), std::ref(regions3), std::ref(U), 0, angle_map.rows / 2, 0, angle_map.rows,
+                    angle_map.cols / 2);
+
+    //main_thread
+    region_growing::get_regions_one_thread(cls_map, angle_map, cls_bin,
+                                           regions4,
+                                           U, 0, angle_map.rows / 2, angle_map.cols / 2, angle_map.rows,
+                                           angle_map.cols);
+    th1.join();
+    th2.join();
+    th3.join();
+
+    std::vector<std::vector<std::vector<int>>> regions;
+    regions.reserve(regions1.size() + regions2.size() + regions3.size() + regions4.size());
+
+    regions.insert(regions.end(), regions1.begin(), regions1.end());
+    regions.insert(regions.end(), regions2.begin(), regions2.end());
+    regions.insert(regions.end(), regions3.begin(), regions3.end());
+    regions.insert(regions.end(), regions4.begin(), regions4.end());
+    return regions;
+}
+
+void region_growing::get_regions_one_thread(const cv::Mat &cls_map, const cv::Mat &angle_map, const cv::Mat &cls_bin,
+                                            std::vector<std::vector<std::vector<int>>> &regions,
+                                            std::vector<std::vector<bool>> &U, int shift, int top_corner_x,
+                                            int top_corner_y, int bot_corner_x, int bot_corner_y) {
     std::vector<std::vector<int>> G(2);
     std::vector<float> D;
 
 
-    for (int i = 0; i < cls_bin.rows; ++i) {
-        for (int j = 0; j < cls_bin.cols; ++j) {
+    for (int i = top_corner_x; i < bot_corner_x; ++i) {
+        for (int j = top_corner_y; j < bot_corner_y; ++j) {
             if (cls_bin.at<uchar>(i, j)) {
                 G[0].push_back(i); // TO OPTIMISE . maybe we can preallocate G
                 G[1].push_back(j);
@@ -52,9 +89,6 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
         S[0][i] = G[0][idx_i];
         S[1][i] = G[1][idx_i];
     }
-
-    std::vector<std::vector<bool>> U(cls_map.rows, std::vector<bool>(cls_map.cols));
-
     int i = 0;
     int S_index = S[0].size() - 1;
 
@@ -73,18 +107,20 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
             S_index--;
         }
         if (S_index < 0) break;
-        std::vector<std::vector<int>> region = region_grouping(root, cls_map, angle_map, cls_bin, U);
+        std::vector<std::vector<int>> region = region_grouping(root, cls_map, angle_map, cls_bin, U, top_corner_x,
+                                                               top_corner_y, bot_corner_x, bot_corner_y);
 
         if (region[0].size() > min_region_size) {
-            regions[i] = region;
+            regions.push_back(region);
         } else i--;
     }
-    return regions;
+
 }
 
 std::vector<std::vector<int>>
 region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::Mat &angle_map,
-                                const cv::Mat &cls_bin, std::vector<std::vector<bool>> &U) const {
+                                const cv::Mat &cls_bin, std::vector<std::vector<bool>> &U, int top_corner_x,
+                                int top_corner_y, int bot_corner_x, int bot_corner_y) const {
     std::vector<std::vector<int>> region(2);
 
     float region_mean = cls_map.at<float>(root[0], root[1]);
@@ -119,7 +155,7 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
     while (!newly_added[0].empty()) {
 
         neighborhood_size = get_r_neighborhood(newly_added[0].front(), newly_added[1].front(), neighborhood, cls_bin,
-                                               U);
+                                               U, top_corner_x, top_corner_y, bot_corner_x, bot_corner_y);
         newly_added[0].pop();
         newly_added[1].pop();
 
@@ -153,7 +189,10 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
             }
         }
     }
-
+    for (int i = 0; i < 2; ++i) {
+        delete [] neighborhood[i];
+    }
+    delete[] neighborhood;
 //    if (region[0].size() > min_region_size) {
 //        int b = 9;
 //    }
@@ -161,98 +200,55 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
 }
 
 inline int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const cv::Mat &cls_bin,
-                                       std::vector<std::vector<bool>> &U) const {
+                                              std::vector<std::vector<bool>> &U, int top_corner_x, int top_corner_y,
+                                              int bot_corner_x, int bot_corner_y) const {
     assert(r == 1);
     //??? TO OPTIMISE . x - 1 >= 0 and so on is always true, due to the construction of cls_bin(no active borders)?
     int neighborhood_size = 0;
     int max_size = cls_bin.cols;
-    if (x - 1 >= 0) {
-//        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
-//            neighborhood[0][neighborhood_size] = x - 1;
-//            neighborhood[1][neighborhood_size] = y - 1;
-//            neighborhood_size++;
-//        }
+    if (x - 1 >= top_corner_x) {
+        if (y - 1 >= top_corner_y and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
+            neighborhood[0][neighborhood_size] = x - 1;
+            neighborhood[1][neighborhood_size] = y - 1;
+            neighborhood_size++;
+        }
         if (cls_bin.at<uchar>(x - 1, y) and !U[x - 1][y]) {
             neighborhood[0][neighborhood_size] = x - 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-//        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
-//            neighborhood[0][neighborhood_size] = x - 1;
-//            neighborhood[1][neighborhood_size] = y + 1;
-//            neighborhood_size++;
-//        }
+        if (y + 1 < bot_corner_y and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
+            neighborhood[0][neighborhood_size] = x - 1;
+            neighborhood[1][neighborhood_size] = y + 1;
+            neighborhood_size++;
+        }
     }
-    if (y - 1 >= 0 and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
+    if (y - 1 >= top_corner_y and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
         neighborhood[0][neighborhood_size] = x;
         neighborhood[1][neighborhood_size] = y - 1;
         neighborhood_size++;
     }
-    if (y + 1 < max_size and cls_bin.at<uchar>(x, y + 1) and !U[x][y + 1]) {
+    if (y + 1 < bot_corner_y and cls_bin.at<uchar>(x, y + 1) and !U[x][y + 1]) {
         neighborhood[0][neighborhood_size] = x;
         neighborhood[1][neighborhood_size] = y + 1;
         neighborhood_size++;
     }
-    if (x + 1 < max_size) {
-//        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
-//            neighborhood[0][neighborhood_size] = x + 1;
-//            neighborhood[1][neighborhood_size] = y - 1;
-//            neighborhood_size++;
-//        }
+    if (x + 1 < bot_corner_x) {
+        if (y - 1 >= top_corner_y and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
+            neighborhood[0][neighborhood_size] = x + 1;
+            neighborhood[1][neighborhood_size] = y - 1;
+            neighborhood_size++;
+        }
         if (cls_bin.at<uchar>(x + 1, y) and !U[x + 1][y]) {
             neighborhood[0][neighborhood_size] = x + 1;
             neighborhood[1][neighborhood_size] = y;
             neighborhood_size++;
         }
-//        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
-//            neighborhood[0][neighborhood_size] = x + 1;
-//            neighborhood[1][neighborhood_size] = y + 1;
-//            neighborhood_size++;
-//        }
+        if (y + 1 < bot_corner_y and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
+            neighborhood[0][neighborhood_size] = x + 1;
+            neighborhood[1][neighborhood_size] = y + 1;
+            neighborhood_size++;
+        }
     }
-//    if (x - 1 >= 0) {
-//        if (y - 1 >= 0 and cls_bin.at<uchar>(x - 1, y - 1) and !U[x - 1][y - 1]) {
-//            neighborhood[0][neighborhood_size] = x - 1;
-//            neighborhood[1][neighborhood_size] = y - 1;
-//            neighborhood_size++;
-//        }
-//        if (cls_bin.at<uchar>(x - 1, y) and !U[x - 1][y]) {
-//            neighborhood[0][neighborhood_size] = x - 1;
-//            neighborhood[1][neighborhood_size] = y;
-//            neighborhood_size++;
-//        }
-//        if (y + 1 < max_size and cls_bin.at<uchar>(x - 1, y + 1) and !U[x - 1][y + 1]) {
-//            neighborhood[0][neighborhood_size] = x - 1;
-//            neighborhood[1][neighborhood_size] = y + 1;
-//            neighborhood_size++;
-//        }
-//    }
-//    if (y - 1 >= 0 and cls_bin.at<uchar>(x, y - 1) and !U[x][y - 1]) {
-//        neighborhood[0][neighborhood_size] = x;
-//        neighborhood[1][neighborhood_size] = y - 1;
-//        neighborhood_size++;
-//    }
-//    if (y + 1 < max_size and cls_bin.at<uchar>(x, y + 1) and !U[x][y + 1]) {
-//        neighborhood[0][neighborhood_size] = x;
-//        neighborhood[1][neighborhood_size] = y + 1;
-//        neighborhood_size++;
-//    }
-//    if (x + 1 < max_size) {
-//        if (y - 1 >= 0 and cls_bin.at<uchar>(x + 1, y - 1) and !U[x + 1][y - 1]) {
-//            neighborhood[0][neighborhood_size] = x + 1;
-//            neighborhood[1][neighborhood_size] = y - 1;
-//            neighborhood_size++;
-//        }
-//        if (cls_bin.at<uchar>(x + 1, y) and !U[x + 1][y]) {
-//            neighborhood[0][neighborhood_size] = x + 1;
-//            neighborhood[1][neighborhood_size] = y;
-//            neighborhood_size++;
-//        }
-//        if (y + 1 < max_size and cls_bin.at<uchar>(x + 1, y + 1) and !U[x + 1][y + 1]) {
-//            neighborhood[0][neighborhood_size] = x + 1;
-//            neighborhood[1][neighborhood_size] = y + 1;
-//            neighborhood_size++;
-//        }
-//    }
     return neighborhood_size;
 }
