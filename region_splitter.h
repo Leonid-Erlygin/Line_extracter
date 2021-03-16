@@ -11,6 +11,9 @@
 #include <algorithm>
 #include "opencv2/core/core.hpp"
 #include <numeric>
+#include <opencv2/highgui.hpp>
+
+
 class region_splitter {
 public:
     region_splitter(int n_bins, float , float);

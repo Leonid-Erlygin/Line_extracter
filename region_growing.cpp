@@ -4,6 +4,7 @@
 
 #include "region_growing.h"
 #include <cmath>
+#include <iostream>
 #include "queue"
 
 region_growing::region_growing(int r, float tau, float deviation_thresh, int min_region_size) :
@@ -45,10 +46,367 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::vector<std::vector<std::vector<int>>> regions;
     regions.reserve(regions1.size() + regions2.size() + regions3.size() + regions4.size());
 
-    regions.insert(regions.end(), regions1.begin(), regions1.end());
-    regions.insert(regions.end(), regions2.begin(), regions2.end());
-    regions.insert(regions.end(), regions3.begin(), regions3.end());
-    regions.insert(regions.end(), regions4.begin(), regions4.end());
+    std::vector<std::vector<int>> vert(2, std::vector<int>(cls_map.rows));
+    std::vector<std::vector<int>> horiz(2, std::vector<int>(cls_map.cols));
+
+    int length = cls_map.rows / 2;
+    int double_length = length * 2;
+    for (int i = 0; i < regions1.size(); ++i) {
+        int n = regions1[i][0].size();
+        for (int j = 0; j < n; ++j) {
+            int x = regions1[i][0][j];
+            int y = regions1[i][1][j];
+            if (x == length - 1) {
+                horiz[0][y] = i + 1;
+            }
+            if (y == length - 1) {
+                vert[0][x] = i + 1;
+            }
+        }
+    }
+    for (int i = 0; i < regions2.size(); ++i) {
+        int n = regions2[i][0].size();
+        for (int j = 0; j < n; ++j) {
+            int x = regions2[i][0][j];
+            int y = regions2[i][1][j];
+            if (x == length - 1) {
+                horiz[0][y] = i + 1;
+            }
+            if (y == length) {
+                vert[1][x] = i + 1;
+            }
+        }
+    }
+    for (int i = 0; i < regions3.size(); ++i) {
+        int n = regions3[i][0].size();
+        for (int j = 0; j < n; ++j) {
+            int x = regions3[i][0][j];
+            int y = regions3[i][1][j];
+            if (x == length) {
+                horiz[1][y] = i + 1;
+            }
+            if (y == length - 1) {
+                vert[0][x] = i + 1;
+            }
+        }
+    }
+
+    for (int i = 0; i < regions4.size(); ++i) {
+        int n = regions4[i][0].size();
+        for (int j = 0; j < n; ++j) {
+            int x = regions4[i][0][j];
+            int y = regions4[i][1][j];
+            if (x == length) {
+                horiz[1][y] = i + 1;
+            }
+            if (y == length) {
+                vert[1][x] = i + 1;
+            }
+        }
+    }
+
+//    for (int i = 0; i <vert[0].size(); ++i) {
+//        std::cout<<i<<": "<<vert[0][i]<<" "<<vert[1][i]<<'\n';
+//    }
+    int i = 1;
+    int j = 0;
+    int k = 0;
+    int l = 0;
+
+    std::map<int, int> first_to_second;
+    while (i < length) {
+        while (i != length and !vert[0][i]) {
+            i++;
+        }
+        if (i == length)break;
+        j = i + 1;
+
+        while (j != length and vert[0][j]) {
+            j++;
+        }
+        k = i - 1;
+        while (k != length and !vert[1][k]) {
+            k++;
+        }
+        if (k == length)break;
+        l = k + 1;
+        while (l != length and vert[1][l]) {
+            l++;
+        }
+
+        if (j - k >= 0 and l - i >= 0) {
+            first_to_second[vert[0][i] - 1] = vert[1][k] - 1;
+        }
+        i = j;
+    }
+    std::map<int, int> second_to_forth;
+
+    i = length + 1;
+    j = 0;
+    k = 0;
+    l = 0;
+
+    while (i < double_length) {
+        while (i != double_length and !horiz[0][i]) {
+            i++;
+        }
+        if (i == double_length)break;
+        j = i + 1;
+
+        while (j != double_length and horiz[0][j]) {
+            j++;
+        }
+        k = i - 1;
+        while (k != double_length and !horiz[1][k]) {
+            k++;
+        }
+        if (k == double_length)break;
+        l = k + 1;
+        while (l != double_length and horiz[1][l]) {
+            l++;
+        }
+
+        if (j - k >= 0 and l - i >= 0) {
+            second_to_forth[horiz[0][i] - 1] = horiz[1][k] - 1;
+        }
+        i = j;
+    }
+    std::map<int, int> forth_to_third;
+
+    i = length + 1;
+    j = 0;
+    k = 0;
+    l = 0;
+
+    while (i < double_length) {
+        while (i != double_length and !vert[1][i]) {
+            i++;
+        }
+        if (i == double_length)break;
+        j = i + 1;
+
+        while (j != double_length and vert[1][j]) {
+            j++;
+        }
+        k = i - 1;
+        while (k != double_length and !vert[0][k]) {
+            k++;
+        }
+        if (k == double_length)break;
+        l = k + 1;
+        while (l != double_length and vert[0][l]) {
+            l++;
+        }
+
+        if (j - k >= 0 and l - i >= 0) {
+            forth_to_third[vert[1][i] - 1] = vert[0][k] - 1;
+        }
+        i = j;
+    }
+    std::map<int, int> third_to_first;
+
+    i = 1;
+    j = 0;
+    k = 0;
+    l = 0;
+
+    while (i < length) {
+        while (i != length and !horiz[1][i]) {
+            i++;
+        }
+        if (i == length)break;
+        j = i + 1;
+
+        while (j != length and horiz[1][j]) {
+            j++;
+        }
+        k = i - 1;
+        while (k != length and !horiz[0][k]) {
+            k++;
+        }
+        if (k == length)break;
+        l = k + 1;
+        while (l != length and horiz[0][l]) {
+            l++;
+        }
+
+        if (j - k >= 0 and l - i >= 0) {
+            third_to_first[horiz[1][i] - 1] = horiz[0][k] - 1;
+        }
+        i = j;
+    }
+    std::map<int, std::pair<int, int>> merge_map_1;
+    std::map<int, std::pair<int, int>> merge_map_2;
+    std::map<int, std::pair<int, int>> merge_map_3;
+    std::map<int, std::pair<int, int>> merge_map_4;
+
+    std::map<int, int> third_to_first_inv;
+    for (auto const &x : third_to_first) {
+        third_to_first_inv[x.second] = x.first;
+    }
+
+    for (auto const &x:first_to_second) {
+        auto it = third_to_first_inv.find(x.first);
+        if (it != third_to_first_inv.end()) {
+            merge_map_2[x.second] = std::pair<int, int>(x.first, it->second);
+            third_to_first[it->second] = -1; //do not need to use it again
+        } else {
+            merge_map_2[x.second] = std::pair<int, int>(x.first, -1);
+        }
+    }
+    for (auto const &x:second_to_forth) {
+        auto it = merge_map_2.find(x.first);
+        if (it != merge_map_2.end()) {
+            merge_map_4[x.second] = std::pair<int, int>(x.first, merge_map_2[x.first].first);
+            merge_map_2[x.first].first = -1;
+        } else {
+            merge_map_4[x.second] = std::pair<int, int>(x.first, -1);
+        }
+    }
+    for (auto const &x:forth_to_third) {
+        auto it = merge_map_4.find(x.first);
+        if (it != merge_map_4.end()) {
+            merge_map_3[x.second] = std::pair<int, int>(x.first, merge_map_4[x.first].first);
+            merge_map_4[x.first].first = -1;
+        } else {
+            merge_map_3[x.second] = std::pair<int, int>(x.first, -1);
+        }
+    }
+    for (auto const &x:third_to_first) {
+        if (third_to_first[x.first] == -1)continue;
+        auto it = merge_map_3.find(x.first);
+        if (it != merge_map_3.end()) {
+            merge_map_1[x.second] = std::pair<int, int>(x.first, merge_map_3[x.first].first);
+            merge_map_3[x.first].first = -1;
+        } else {
+            merge_map_1[x.second] = std::pair<int, int>(x.first, -1);
+        }
+    }
+
+    //now we reassign regions according to maps above
+
+    for (auto const &x:merge_map_1) {
+
+        if (x.second.first == -1)continue;
+        std::vector<std::vector<int>> &curr = regions1[x.first];
+        std::vector<std::vector<int>> &prev = regions3[x.second.first];
+
+        curr[0].insert(curr[0].end(), prev[0].begin(), prev[0].end());
+        curr[1].insert(curr[1].end(), prev[1].begin(), prev[1].end());
+
+        if (x.second.second == -1)continue;
+        std::vector<std::vector<int>> &prev_prev = regions4[x.second.second];
+
+        curr[0].insert(curr[0].end(), prev_prev[0].begin(), prev_prev[0].end());
+        curr[1].insert(curr[1].end(), prev_prev[1].begin(), prev_prev[1].end());
+
+    }
+    for (auto const &x:merge_map_2) {
+        if (x.second.first == -1)continue;
+        std::vector<std::vector<int>> &curr = regions2[x.first];
+        std::vector<std::vector<int>> &prev = regions1[x.second.first];
+
+        curr[0].insert(curr[0].end(), prev[0].begin(), prev[0].end());
+        curr[1].insert(curr[1].end(), prev[1].begin(), prev[1].end());
+
+        if (x.second.second == -1)continue;
+        std::vector<std::vector<int>> &prev_prev = regions3[x.second.second];
+
+        curr[0].insert(curr[0].end(), prev_prev[0].begin(), prev_prev[0].end());
+        curr[1].insert(curr[1].end(), prev_prev[1].begin(), prev_prev[1].end());
+
+    }
+
+    for (auto const &x:merge_map_4) {
+        if (x.second.first == -1)continue;
+        std::vector<std::vector<int>> &curr = regions4[x.first];
+        std::vector<std::vector<int>> &prev = regions2[x.second.first];
+
+        curr[0].insert(curr[0].end(), prev[0].begin(), prev[0].end());
+        curr[1].insert(curr[1].end(), prev[1].begin(), prev[1].end());
+
+        if (x.second.second == -1)continue;
+        std::vector<std::vector<int>> &prev_prev = regions1[x.second.second];
+
+        curr[0].insert(curr[0].end(), prev_prev[0].begin(), prev_prev[0].end());
+        curr[1].insert(curr[1].end(), prev_prev[1].begin(), prev_prev[1].end());
+
+    }
+    for (auto const &x:merge_map_3) {
+        if (x.second.first == -1)continue;
+        std::vector<std::vector<int>> &curr = regions3[x.first];
+        std::vector<std::vector<int>> &prev = regions4[x.second.first];
+
+        curr[0].insert(curr[0].end(), prev[0].begin(), prev[0].end());
+        curr[1].insert(curr[1].end(), prev[1].begin(), prev[1].end());
+
+        if (x.second.second == -1)continue;
+        std::vector<std::vector<int>> &prev_prev = regions2[x.second.second];
+
+        curr[0].insert(curr[0].end(), prev_prev[0].begin(), prev_prev[0].end());
+        curr[1].insert(curr[1].end(), prev_prev[1].begin(), prev_prev[1].end());
+
+    }
+
+    if (first_to_second.empty()) {
+        regions.insert(regions.end(), regions1.begin(), regions1.end());
+    } else {
+        int size = first_to_second.size();
+        int prev = 0;
+        auto it = first_to_second.begin();
+        for (int m = 0; m < size; ++m) {
+            regions.insert(regions.end(), regions1.begin() + prev, regions1.begin() + it->first);
+            prev = it->first + 1;
+            it++;
+        }
+        regions.insert(regions.end(), regions1.begin() + prev, regions1.end());
+    }
+
+    if (second_to_forth.empty()) {
+        regions.insert(regions.end(), regions2.begin(), regions2.end());
+    } else {
+        int size = second_to_forth.size();
+        int prev = 0;
+        auto it = second_to_forth.begin();
+        for (int m = 0; m < size; ++m) {
+            regions.insert(regions.end(), regions2.begin() + prev, regions2.begin() + it->first);
+            prev =it->first + 1;
+            it++;
+        }
+        regions.insert(regions.end(), regions2.begin() + prev, regions2.end());
+    }
+
+    if (forth_to_third.empty()) {
+        regions.insert(regions.end(), regions4.begin(), regions4.end());
+    } else {
+        int size = forth_to_third.size();
+        int prev = 0;
+        auto it = forth_to_third.begin();
+        for (int m = 0; m < size; ++m) {
+            regions.insert(regions.end(), regions4.begin() + prev, regions4.begin() + it->first);
+            prev = it->first + 1;
+            it++;
+        }
+        regions.insert(regions.end(), regions4.begin() + prev, regions4.end());
+    }
+
+    if (third_to_first.empty()) {
+        regions.insert(regions.end(), regions3.begin(), regions3.end());
+    } else {
+        int size = third_to_first.size();
+        int prev = 0;
+        auto it = third_to_first.begin();
+        for (int m = 0; m < size; ++m) {
+            regions.insert(regions.end(), regions3.begin() + prev, regions3.begin() + it->first);
+            prev = it->first + 1;
+            it++;
+        }
+        regions.insert(regions.end(), regions3.begin() + prev, regions3.end());
+    }
+//    regions.insert(regions.end(), regions1.begin(), regions1.end());
+//    regions.insert(regions.end(), regions2.begin(), regions2.end());
+//    regions.insert(regions.end(), regions3.begin(), regions3.end());
+//    regions.insert(regions.end(), regions4.begin(), regions4.end());
     return regions;
 }
 
@@ -190,7 +548,7 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
         }
     }
     for (int i = 0; i < 2; ++i) {
-        delete [] neighborhood[i];
+        delete[] neighborhood[i];
     }
     delete[] neighborhood;
 //    if (region[0].size() > min_region_size) {

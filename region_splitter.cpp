@@ -3,6 +3,7 @@
 //
 
 
+#include <iostream>
 #include "region_splitter.h"
 
 region_splitter::region_splitter(int n_bins, float pool_depth, float pool_tolerance) : n_bins(n_bins),
@@ -21,78 +22,104 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
      * it has shape : 2 x number_of_regions
      */
 
-    std::vector<float> y = new_coords[1];
+    std::vector<double> y(new_coords[1].size());
     std::vector<int> idx(y.size());
     iota(idx.begin(), idx.end(), 0);
-    //argsort
     stable_sort(idx.begin(), idx.end(),
-                [&y](size_t i1, size_t i2) { return y[i1] < y[i2]; });
-    //y sort using argsort
+                [&new_coords](size_t i1, size_t i2) { return new_coords[1][i1] < new_coords[1][i2]; });
     for (int i = 0; i < y.size(); ++i) {
-        y[i] = new_coords[1][idx[i]];
+        y[i] = static_cast<double >(new_coords[1][idx[i]]);
     }
+//    KDE *kde = new KDE();
+//    kde->set_kernel_type(1); // Gaussian
+//    kde->set_bandwidth_opt_type(1); // Optim type
+//    kde->bandwidth = 0.7;
+    double bandwidth = 1;
+//    for (int i = 0; i < y.size(); ++i) {
+//        kde->add_data(y[i]);
+//    }
+    //kde->add_data(y);
+    double min_y = y[0];
+    double max_y = y[y.size() - 1];
+    int bins_size = 15;
+    int discret_size = 15;
+    double y_increment = (max_y - min_y) / bins_size;
 
-    std::vector<float> hist(n_bins);
+    std::vector<int> discret_count(discret_size + 1);
+    double y_increment_discret = (max_y - min_y) / discret_size + 0.000000000001;
+    double r = min_y + y_increment_discret;
 
-    uint n = y.size();
-    float delta_y = (y[n - 1] - y[0]) / n_bins + 0.000001;
-    float r = y[0] + delta_y;
     int j = 0;
-
-    //МОЖНО УСКОРИТЬ, ЕСЛИ ИСПОЛЬЗОВАТЬ БИН ПОИСК
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < y.size(); ++i) {
         if (y[i] > r) {
+            r += y_increment_discret;
             j++;
-            r += delta_y;
         }
-        hist[j]++;
+        discret_count[j]++;
     }
-    for (int i = 0; i <n_bins; ++i) {
-        hist[i]/=y.size();
+
+
+    std::vector<double> hist_y;
+    double sum = 0;
+    for (double point = min_y; point <= max_y; point += y_increment) {
+        double d = 0.0;
+
+        for (int i = 0; i < discret_count.size(); ++i) {
+
+            double z = (point - (min_y + i * y_increment_discret + y_increment_discret / 2)) / bandwidth;
+
+            d += (exp(-0.5 * z * z) / (sqrt(2.0 * M_PI))) * discret_count[i];
+        }
+        d = d / (y.size() * bandwidth);
+        sum += d;
+        hist_y.push_back(d);
     }
-    //here we will find local minimums of hist
-    //we start the check from sliding_window_size th bin
+    for (int i = 0; i < hist_y.size(); ++i) {
+        hist_y[i] /= sum;
+    }
+
 
     std::vector<float> minimums;
-    float prev_value = hist[0];
-    int i = 1;
-//    if (n == 85){
-//        int x = 1;
-//    }
-    while (i < n_bins) {
-        int k = 0;
-
-        if (hist[i] < prev_value - pool_depth) {
-            k = i;
-            //here we start pool area
-            i++;
-            while (i != n_bins and hist[i] - hist[i - 1] > pool_tolerance) {
-                i++;
-            }
-            if (i != n_bins) {
-                minimums.push_back(y[0] + delta_y * (i + k) / 2);
+    std::vector<float> minimums_i;
+    int order = 1;
+    double tol = 0;
+    for (int i = order; i < hist_y.size() - order; ++i) {
+        bool is_i_min = true;
+        double i_value = hist_y[i];
+        for (int j = -order; j <= order; ++j) {
+            if (j == 0)continue;
+            if (i_value > hist_y[i + j] - tol) {
+                is_i_min = false;
             }
         }
-        prev_value = hist[i];
-        i++;
+        if (is_i_min) {
+            minimums.push_back(min_y + y_increment * i + y_increment / 2);
+            minimums_i.push_back(i);
+        }
     }
-//    if (minimums.size() == 1) {
-//        int x = 1;
-//    }
-//     if around of our bin_i exists bin_j such that bim_j.value <= bin_i.value, then bin_i is not min
-//    for (int i = sliding_window_size; i < hist.size() - sliding_window_size; ++i) {
-//        bool i_is_min = true;
-//        int i_count = hist[i];
-//        for (int k = -sliding_window_size; k <= sliding_window_size; ++k) {
-//            if (k == 0) continue;
-//            if (hist[i + k] - diff_tolerance <= i_count) {
-//                i_is_min = false;
-//                break;
-//            }
-//        }
-//        if (i_is_min)minimums.push_back(y[0] + i * delta_y + delta_y / 2);
-//    }
 
+//    int scale = 10000;
+//    double y_hist_max = -1;
+//    for (int i = 0; i <hist_y.size(); ++i) {
+//        if(hist_y[i]>y_hist_max)y_hist_max = hist_y[i];
+//    }
+//    cv::Mat plot(400, hist_y.size() * 20, CV_8UC1, cv::Scalar(0));
+//    for (int i = 0; i < hist_y.size(); ++i) {
+//        std::cout<<int((1-hist_y[i])*scale)<<std::endl;
+//        plot.at<uchar>(int((1-hist_y[i])*scale) - 9200, i * 20) = 255;
+//    }
+//    for (int i = 0; i < minimums_i.size(); ++i) {
+//        plot.at<uchar>(3 * scale / 4, minimums_i[i] * 20) = 255;
+//    }
+//    namedWindow("F", cv::WINDOW_AUTOSIZE);
+//    imshow("F", plot);
+//    cv::waitKey(0);
+//
+//    exit(0);
+
+    if (!minimums.empty()) {
+        int x = 1;
+    }
     std::vector<std::vector<std::vector<float>>> splitted_regions(minimums.size() + 1,
                                                                   std::vector<std::vector<float>>(2));
 
