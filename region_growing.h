@@ -26,6 +26,14 @@ public:
                            int shift, int top_corner_x, int top_corner_y, int bot_corner_x, int bot_corner_y);
 
 private:
+    static void
+    compute_merge_map(const std::map<int, int> &mapping, std::map<int, std::pair<int, int>> &merge_map_target,
+                      std::map<int, std::pair<int, int>> &merge_map_origin);
+
+    static void
+    compute_merge_map_for_second(std::map<int, int> &third_to_first, std::map<int, std::pair<int, int>> &merge_map_2,
+                                 const std::map<int, int> &first_to_second);
+
     void find_mappings(int i, std::map<int, int> &mapping, int length, const std::vector<std::vector<int>> &line,
                        const std::vector<std::vector<float>> &regions_first_mean_angle,
                        const std::vector<std::vector<float>> &regions_second_mean_angle,

@@ -31,8 +31,8 @@ void compute_predictions_and_confidences(int img_index, std::vector<std::vector<
             cv::IMREAD_ANYDEPTH);
 
 
-    roi_extraction roi("local thresh", 0.5, 2, 11);
-    region_growing rg(1, 0.05, 0.35, 20);
+    roi_extraction roi("local thresh", 0.4, 2, 11);
+    region_growing rg(1, 0.05, 0.35, 10);
     compute_eigen_coords compute_eigen;
     segment_extractor seg_extractor;
     region_splitter rs(1, 15,15, 1);
@@ -258,7 +258,7 @@ void draw_all_regions_of_img(int img_index) {
             cv::IMREAD_ANYDEPTH);
 
     roi_extraction roi("local thresh", 0.5, 2, 11);
-    region_growing rg(1, 0.05, 0.35, 20);
+    region_growing rg(1, 0.05, 0.35, 25);
     region_splitter rs(1, 15, 15, 1);
     cv::Mat cls_bin = roi.get_roi(cls_map);
     std::vector<std::vector<std::vector<int>>> regions = rg.get_regions(cls_map, angle_map, cls_bin);
