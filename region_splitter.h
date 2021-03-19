@@ -16,15 +16,21 @@
 
 class region_splitter {
 public:
-    region_splitter(int n_bins, float , float);
+    region_splitter(double bandwidth,
+                    int bins_size,
+                    int discret_size,
+                    int order);
 
     std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<float>>>>
-    get_splitted_regions_with_conf_and_weighted_mean(const std::vector<std::vector<int>> &region , const std::vector<std::vector<float>> &new_coords, const cv::Mat &cls_map) const;
+    get_splitted_regions_with_conf_and_weighted_mean(const std::vector<std::vector<int>> &region,
+                                                     const std::vector<std::vector<float>> &new_coords,
+                                                     const cv::Mat &cls_map) const;
 
 private:
-    int n_bins ;
-    float pool_tolerance;
-    float pool_depth;
+    double bandwidth = 1;
+    int bins_size = 15;
+    int discret_size = 15;
+    int order = 1;
 };
 
 

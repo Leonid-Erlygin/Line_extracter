@@ -7,6 +7,8 @@
 #include <iostream>
 #include "queue"
 
+#define SAW 1
+
 region_growing::region_growing(int r, float tau, float deviation_thresh, int min_region_size) :
         r(r),
         tau(tau),
@@ -14,6 +16,74 @@ region_growing::region_growing(int r, float tau, float deviation_thresh, int min
         min_region_size(min_region_size) {
 }
 
+void region_growing::fill_horiz_and_vert(std::vector<std::vector<std::vector<int>>> const &regions,
+                                         std::vector<std::vector<int>> &vert,
+                                         std::vector<std::vector<int>> &horiz, int length, int x_shift, int y_shift,
+                                         int horiz_idx, int vert_idx) {
+    for (int i = 0; i < regions.size(); ++i) {
+        int n = regions[i][0].size();
+        for (int j = 0; j < n; ++j) {
+            int x = regions[i][0][j];
+            int y = regions[i][1][j];
+            if (x == length - x_shift) {
+                horiz[horiz_idx][y] = i + 1;
+                int p = 1;
+            }
+            if (y == length - y_shift) {
+                vert[vert_idx][x] = i + 1;
+            }
+        }
+    }
+}
+
+void
+region_growing::find_mappings(int i, std::map<int, int> &mapping, int length, const std::vector<std::vector<int>> &line,
+                              const std::vector<std::vector<float>> &regions_first_mean_angle,
+                              const std::vector<std::vector<float>> &regions_second_mean_angle,
+                              bool first_index) const {
+
+    int j;
+    int k;
+    int l;
+    while (i < length) {
+        while (i != length and !line[first_index][i]) {
+            i++;
+        }
+        if (i == length)break;
+        j = i + 1;
+
+        while (j != length and line[first_index][j]) {
+            j++;
+        }
+        k = i - 1;
+        while (k != length and !line[!first_index][k]) {
+            k++;
+        }
+        if (k == length)break;
+        l = k + 1;
+        while (l != length and line[!first_index][l]) {
+            l++;
+        }
+
+        if (j - k >= 0 and l - i >= 0) {
+            int first_region_index = line[first_index][i] - 1;
+            int second_region_index = line[!first_index][k] - 1;
+            float V_mean_x_first = regions_first_mean_angle[0][first_region_index];
+            float V_mean_y_first = regions_first_mean_angle[1][first_region_index];
+            float V_mean_x_second = regions_second_mean_angle[0][second_region_index];
+            float V_mean_y_second = regions_second_mean_angle[1][second_region_index];
+
+            if ((V_mean_x_first - V_mean_x_second) * (V_mean_x_first - V_mean_x_second) +
+                (V_mean_y_first - V_mean_y_second) * (V_mean_y_first - V_mean_y_second)
+                < tau) {
+                mapping[first_region_index] = second_region_index;
+            }
+
+        }
+        i = j;
+    }
+
+}
 
 std::vector<std::vector<std::vector<int>>>
 region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, const cv::Mat &cls_bin) {
@@ -22,21 +92,29 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::vector<std::vector<std::vector<int>>> regions3;
     std::vector<std::vector<std::vector<int>>> regions4;
 
+    std::vector<std::vector<float>> regions1_mean_angle(2);
+    std::vector<std::vector<float>> regions2_mean_angle(2);
+    std::vector<std::vector<float>> regions3_mean_angle(2);
+    std::vector<std::vector<float>> regions4_mean_angle(2);
+
     std::vector<std::vector<bool>> U(angle_map.rows, std::vector<bool>(angle_map.cols));
 
     std::thread th1(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
-                    std::ref(cls_bin), std::ref(regions1), std::ref(U), 0, 0, 0, angle_map.rows / 2,
+                    std::ref(cls_bin), std::ref(regions1), std::ref(regions1_mean_angle), std::ref(U), 0, 0, 0,
+                    angle_map.rows / 2,
                     angle_map.cols / 2);
     std::thread th2(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
-                    std::ref(cls_bin), std::ref(regions2), std::ref(U), 0, 0, angle_map.cols / 2, angle_map.rows / 2,
+                    std::ref(cls_bin), std::ref(regions2), std::ref(regions2_mean_angle), std::ref(U), 0, 0,
+                    angle_map.cols / 2, angle_map.rows / 2,
                     angle_map.cols);
     std::thread th3(&region_growing::get_regions_one_thread, this, std::ref(cls_map), std::ref(angle_map),
-                    std::ref(cls_bin), std::ref(regions3), std::ref(U), 0, angle_map.rows / 2, 0, angle_map.rows,
+                    std::ref(cls_bin), std::ref(regions3), std::ref(regions3_mean_angle), std::ref(U), 0,
+                    angle_map.rows / 2, 0, angle_map.rows,
                     angle_map.cols / 2);
 
     //main_thread
     region_growing::get_regions_one_thread(cls_map, angle_map, cls_bin,
-                                           regions4,
+                                           regions4, std::ref(regions4_mean_angle),
                                            U, 0, angle_map.rows / 2, angle_map.cols / 2, angle_map.rows,
                                            angle_map.cols);
     th1.join();
@@ -46,195 +124,35 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::vector<std::vector<std::vector<int>>> regions;
     regions.reserve(regions1.size() + regions2.size() + regions3.size() + regions4.size());
 
+#if SAW
     std::vector<std::vector<int>> vert(2, std::vector<int>(cls_map.rows));
     std::vector<std::vector<int>> horiz(2, std::vector<int>(cls_map.cols));
 
     int length = cls_map.rows / 2;
     int double_length = length * 2;
-    for (int i = 0; i < regions1.size(); ++i) {
-        int n = regions1[i][0].size();
-        for (int j = 0; j < n; ++j) {
-            int x = regions1[i][0][j];
-            int y = regions1[i][1][j];
-            if (x == length - 1) {
-                horiz[0][y] = i + 1;
-            }
-            if (y == length - 1) {
-                vert[0][x] = i + 1;
-            }
-        }
-    }
-    for (int i = 0; i < regions2.size(); ++i) {
-        int n = regions2[i][0].size();
-        for (int j = 0; j < n; ++j) {
-            int x = regions2[i][0][j];
-            int y = regions2[i][1][j];
-            if (x == length - 1) {
-                horiz[0][y] = i + 1;
-            }
-            if (y == length) {
-                vert[1][x] = i + 1;
-            }
-        }
-    }
-    for (int i = 0; i < regions3.size(); ++i) {
-        int n = regions3[i][0].size();
-        for (int j = 0; j < n; ++j) {
-            int x = regions3[i][0][j];
-            int y = regions3[i][1][j];
-            if (x == length) {
-                horiz[1][y] = i + 1;
-            }
-            if (y == length - 1) {
-                vert[0][x] = i + 1;
-            }
-        }
-    }
 
-    for (int i = 0; i < regions4.size(); ++i) {
-        int n = regions4[i][0].size();
-        for (int j = 0; j < n; ++j) {
-            int x = regions4[i][0][j];
-            int y = regions4[i][1][j];
-            if (x == length) {
-                horiz[1][y] = i + 1;
-            }
-            if (y == length) {
-                vert[1][x] = i + 1;
-            }
-        }
-    }
+    //fill values
+    fill_horiz_and_vert(regions1, vert, horiz, length, 1, 1, 0, 0);
+    fill_horiz_and_vert(regions2, vert, horiz, length, 1, 0, 0, 1);
+    fill_horiz_and_vert(regions3, vert, horiz, length, 0, 1, 1, 0);
+    fill_horiz_and_vert(regions4, vert, horiz, length, 0, 0, 1, 1);
 
-//    for (int i = 0; i <vert[0].size(); ++i) {
-//        std::cout<<i<<": "<<vert[0][i]<<" "<<vert[1][i]<<'\n';
-//    }
-    int i = 1;
-    int j = 0;
-    int k = 0;
-    int l = 0;
-
+    //find mappings
     std::map<int, int> first_to_second;
-    while (i < length) {
-        while (i != length and !vert[0][i]) {
-            i++;
-        }
-        if (i == length)break;
-        j = i + 1;
+    find_mappings(1, first_to_second, length, vert,regions1_mean_angle, regions2_mean_angle, false);
 
-        while (j != length and vert[0][j]) {
-            j++;
-        }
-        k = i - 1;
-        while (k != length and !vert[1][k]) {
-            k++;
-        }
-        if (k == length)break;
-        l = k + 1;
-        while (l != length and vert[1][l]) {
-            l++;
-        }
-
-        if (j - k >= 0 and l - i >= 0) {
-            first_to_second[vert[0][i] - 1] = vert[1][k] - 1;
-        }
-        i = j;
-    }
     std::map<int, int> second_to_forth;
+    find_mappings(length + 1, second_to_forth, double_length, horiz,regions2_mean_angle,regions4_mean_angle, false);
 
-    i = length + 1;
-    j = 0;
-    k = 0;
-    l = 0;
-
-    while (i < double_length) {
-        while (i != double_length and !horiz[0][i]) {
-            i++;
-        }
-        if (i == double_length)break;
-        j = i + 1;
-
-        while (j != double_length and horiz[0][j]) {
-            j++;
-        }
-        k = i - 1;
-        while (k != double_length and !horiz[1][k]) {
-            k++;
-        }
-        if (k == double_length)break;
-        l = k + 1;
-        while (l != double_length and horiz[1][l]) {
-            l++;
-        }
-
-        if (j - k >= 0 and l - i >= 0) {
-            second_to_forth[horiz[0][i] - 1] = horiz[1][k] - 1;
-        }
-        i = j;
-    }
     std::map<int, int> forth_to_third;
+    find_mappings(length + 1, forth_to_third, double_length, vert,regions4_mean_angle, regions3_mean_angle, true);
 
-    i = length + 1;
-    j = 0;
-    k = 0;
-    l = 0;
-
-    while (i < double_length) {
-        while (i != double_length and !vert[1][i]) {
-            i++;
-        }
-        if (i == double_length)break;
-        j = i + 1;
-
-        while (j != double_length and vert[1][j]) {
-            j++;
-        }
-        k = i - 1;
-        while (k != double_length and !vert[0][k]) {
-            k++;
-        }
-        if (k == double_length)break;
-        l = k + 1;
-        while (l != double_length and vert[0][l]) {
-            l++;
-        }
-
-        if (j - k >= 0 and l - i >= 0) {
-            forth_to_third[vert[1][i] - 1] = vert[0][k] - 1;
-        }
-        i = j;
-    }
     std::map<int, int> third_to_first;
+    find_mappings(1, third_to_first, length, horiz,regions3_mean_angle, regions1_mean_angle, true);
 
-    i = 1;
-    j = 0;
-    k = 0;
-    l = 0;
-
-    while (i < length) {
-        while (i != length and !horiz[1][i]) {
-            i++;
-        }
-        if (i == length)break;
-        j = i + 1;
-
-        while (j != length and horiz[1][j]) {
-            j++;
-        }
-        k = i - 1;
-        while (k != length and !horiz[0][k]) {
-            k++;
-        }
-        if (k == length)break;
-        l = k + 1;
-        while (l != length and horiz[0][l]) {
-            l++;
-        }
-
-        if (j - k >= 0 and l - i >= 0) {
-            third_to_first[horiz[1][i] - 1] = horiz[0][k] - 1;
-        }
-        i = j;
-    }
+//    for (int i = 0; i < length; ++i) {
+//        std::cout << i << " : " << horiz[0][i] << " " << horiz[1][i] << '\n';
+//    }
     std::map<int, std::pair<int, int>> merge_map_1;
     std::map<int, std::pair<int, int>> merge_map_2;
     std::map<int, std::pair<int, int>> merge_map_3;
@@ -370,7 +288,7 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
         auto it = second_to_forth.begin();
         for (int m = 0; m < size; ++m) {
             regions.insert(regions.end(), regions2.begin() + prev, regions2.begin() + it->first);
-            prev =it->first + 1;
+            prev = it->first + 1;
             it++;
         }
         regions.insert(regions.end(), regions2.begin() + prev, regions2.end());
@@ -403,15 +321,20 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
         }
         regions.insert(regions.end(), regions3.begin() + prev, regions3.end());
     }
-//    regions.insert(regions.end(), regions1.begin(), regions1.end());
-//    regions.insert(regions.end(), regions2.begin(), regions2.end());
-//    regions.insert(regions.end(), regions3.begin(), regions3.end());
-//    regions.insert(regions.end(), regions4.begin(), regions4.end());
+#else
+    regions.insert(regions.end(), regions1.begin(), regions1.end());
+regions.insert(regions.end(), regions2.begin(), regions2.end());
+regions.insert(regions.end(), regions3.begin(), regions3.end());
+regions.insert(regions.end(), regions4.begin(), regions4.end());
+
+
+#endif
     return regions;
 }
 
 void region_growing::get_regions_one_thread(const cv::Mat &cls_map, const cv::Mat &angle_map, const cv::Mat &cls_bin,
                                             std::vector<std::vector<std::vector<int>>> &regions,
+                                            std::vector<std::vector<float>> &regions_mean_angle,
                                             std::vector<std::vector<bool>> &U, int shift, int top_corner_x,
                                             int top_corner_y, int bot_corner_x, int bot_corner_y) {
     std::vector<std::vector<int>> G(2);
@@ -452,7 +375,6 @@ void region_growing::get_regions_one_thread(const cv::Mat &cls_map, const cv::Ma
 
     while (S_index >= 0) {
         i++;
-
         int root[2];
         root[0] = S[0][S_index];
         root[1] = S[1][S_index];
@@ -465,27 +387,31 @@ void region_growing::get_regions_one_thread(const cv::Mat &cls_map, const cv::Ma
             S_index--;
         }
         if (S_index < 0) break;
-        std::vector<std::vector<int>> region = region_grouping(root, cls_map, angle_map, cls_bin, U, top_corner_x,
-                                                               top_corner_y, bot_corner_x, bot_corner_y);
+        std::pair<std::vector<std::vector<int>>, std::pair<float, float>> region_and_angle = region_grouping(root,
+                                                                                                             cls_map,
+                                                                                                             angle_map,
+                                                                                                             cls_bin, U,
+                                                                                                             top_corner_x,
+                                                                                                             top_corner_y,
+                                                                                                             bot_corner_x,
+                                                                                                             bot_corner_y);
 
-        if (region[0].size() > min_region_size) {
-            regions.push_back(region);
+        if (region_and_angle.first[0].size() > min_region_size) {
+            regions.push_back(region_and_angle.first);
+            regions_mean_angle[0].push_back(region_and_angle.second.first);
+            regions_mean_angle[1].push_back(region_and_angle.second.second);
         } else i--;
     }
 
 }
 
-std::vector<std::vector<int>>
+std::pair<std::vector<std::vector<int>>, std::pair<float, float>>
 region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::Mat &angle_map,
                                 const cv::Mat &cls_bin, std::vector<std::vector<bool>> &U, int top_corner_x,
                                 int top_corner_y, int bot_corner_x, int bot_corner_y) const {
     std::vector<std::vector<int>> region(2);
 
     float region_mean = cls_map.at<float>(root[0], root[1]);
-//    float Theta_region = angle_map.at<float>(root[0], root[1]) * M_PI;
-//    float Vx = cos(Theta_region);
-//    float Vy = sin(Theta_region);
-
     float ang = angle_map.at<float>(root[0], root[1]) * M_PI;
     float cos0 = std::cos(ang);
     float sin0 = std::sin(ang);
@@ -508,8 +434,6 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
     for (int i = 0; i < 2; ++i) {
         neighborhood[i] = new int[neighborhood_max_size];
     }
-
-
     while (!newly_added[0].empty()) {
 
         neighborhood_size = get_r_neighborhood(newly_added[0].front(), newly_added[1].front(), neighborhood, cls_bin,
@@ -536,9 +460,7 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
                 newly_added[1].push(y);
 
                 U[x][y] = true;
-//                Vx += cos(ang);
-//                Vy += sin(ang);
-//                Theta_region = acos(Vx / sqrt(Vx * Vx + Vy * Vy));
+
                 region_len++;
                 V_mean_x = (V_mean_x * (region_len - 1) + V_x) / region_len;
                 V_mean_y = (V_mean_y * (region_len - 1) + V_y) / region_len;
@@ -551,10 +473,11 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
         delete[] neighborhood[i];
     }
     delete[] neighborhood;
-//    if (region[0].size() > min_region_size) {
-//        int b = 9;
-//    }
-    return region;
+
+    std::pair<std::vector<std::vector<int>>, std::pair<float, float>> ret_value(region,
+                                                                                std::pair<float, float>(V_mean_x,
+                                                                                                        V_mean_y));
+    return ret_value;
 }
 
 inline int region_growing::get_r_neighborhood(int x, int y, int **neighborhood, const cv::Mat &cls_bin,

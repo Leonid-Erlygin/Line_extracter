@@ -6,10 +6,11 @@
 #include <iostream>
 #include "region_splitter.h"
 
-region_splitter::region_splitter(int n_bins, float pool_depth, float pool_tolerance) : n_bins(n_bins),
-                                                                                       pool_depth(pool_depth),
-                                                                                       pool_tolerance(
-                                                                                               pool_tolerance) {
+region_splitter::region_splitter(double bandwidth,
+                                 int bins_size,
+                                 int discret_size,
+                                 int order) : bandwidth(bandwidth), bins_size(bins_size), discret_size(discret_size),
+                                              order(order) {
 
 }
 
@@ -25,24 +26,16 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
     std::vector<double> y(new_coords[1].size());
     std::vector<int> idx(y.size());
     iota(idx.begin(), idx.end(), 0);
+
     stable_sort(idx.begin(), idx.end(),
                 [&new_coords](size_t i1, size_t i2) { return new_coords[1][i1] < new_coords[1][i2]; });
     for (int i = 0; i < y.size(); ++i) {
         y[i] = static_cast<double >(new_coords[1][idx[i]]);
     }
-//    KDE *kde = new KDE();
-//    kde->set_kernel_type(1); // Gaussian
-//    kde->set_bandwidth_opt_type(1); // Optim type
-//    kde->bandwidth = 0.7;
-    double bandwidth = 1;
-//    for (int i = 0; i < y.size(); ++i) {
-//        kde->add_data(y[i]);
-//    }
-    //kde->add_data(y);
+
+
     double min_y = y[0];
     double max_y = y[y.size() - 1];
-    int bins_size = 15;
-    int discret_size = 15;
     double y_increment = (max_y - min_y) / bins_size;
 
     std::vector<int> discret_count(discret_size + 1);
@@ -80,13 +73,13 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
 
 
     std::vector<float> minimums;
-    std::vector<float> minimums_i;
-    int order = 1;
+    //std::vector<float> minimums_i;
+
     double tol = 0;
     for (int i = order; i < hist_y.size() - order; ++i) {
         bool is_i_min = true;
         double i_value = hist_y[i];
-        for (int j = -order; j <= order; ++j) {
+        for (j = -order; j <= order; ++j) {
             if (j == 0)continue;
             if (i_value > hist_y[i + j] - tol) {
                 is_i_min = false;
@@ -94,7 +87,7 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
         }
         if (is_i_min) {
             minimums.push_back(min_y + y_increment * i + y_increment / 2);
-            minimums_i.push_back(i);
+            //minimums_i.push_back(i);
         }
     }
 
@@ -117,9 +110,10 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
 //
 //    exit(0);
 
-    if (!minimums.empty()) {
-        int x = 1;
-    }
+//    if (!minimums.empty()) {
+//        int x = 1;
+//    }
+
     std::vector<std::vector<std::vector<float>>> splitted_regions(minimums.size() + 1,
                                                                   std::vector<std::vector<float>>(2));
 
