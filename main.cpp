@@ -11,11 +11,12 @@ int main() {
      * Это очень тонкий баг. Надо думать
      */
 
-    std::vector<float> threshes = {0.70,0.72,0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81};
-    evaluation(threshes, 462);
+    std::vector<float> threshes = {0.70,0.72,0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81};//0.74 - max
+    //evaluation(threshes, 462);
     int test_image = 117;
     //draw_all_regions_of_img(test_image);
-    //compute_and_draw_image(test_image, 0.7, 256);
+    compute_and_draw_image(test_image, 0.74, 256);
+
     //speed_test(test_image, 100);
 
     return 0;
