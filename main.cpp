@@ -17,7 +17,7 @@ int main() {
     //draw_all_regions_of_img(test_image);
     compute_and_draw_image(test_image, 0.74, 256);
 
-    //speed_test(test_image, 100);
+    //speed_test(test_image, 500);
 
     return 0;
 }

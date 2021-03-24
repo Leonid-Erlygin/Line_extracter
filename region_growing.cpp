@@ -121,6 +121,8 @@ void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &
             std::vector<int> second = {x.second[0]};
             components[i].push_back(first);
             components[i].push_back(second);
+            first_to_Comp[x.first] = i;
+            second_to_Comp[x.second[0]] = i;
             ++i;
             continue;
         }
@@ -157,6 +159,152 @@ void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &
         }
         ++i;
 
+    }
+}
+
+void merge_connectivity_components(
+        std::map<int, std::vector<std::set<int>>> &final_merge,
+        const std::map<int, std::vector<std::vector<int>>> &comp_with_prev,
+        const std::map<int, std::vector<std::vector<int>>> &comp_with_post,
+        const std::map<int, int> &map_to_prev_prev, const std::map<int, int> &map_to_post_post,
+        std::set<int> &used_componets_prev, std::set<int> &used_componets_post) {
+    // проверим на пересечение все пары компонент
+
+    int merged_regions = 0;
+    std::set<int> prev_used_in_intersection;
+    for (auto &post:comp_with_post) {
+        if (used_componets_post.find(post.first) != used_componets_post.end())continue;
+        std::vector<int> intersected_components;
+        for (auto &prev:comp_with_prev) {
+            if (used_componets_prev.find(prev.first) != used_componets_prev.end())continue;
+            //проверим пересечение множеств
+            bool intersect = false;
+            for (int i = 0; i < post.second[0].size(); ++i) {
+                for (int j = 0; j < prev.second[1].size(); ++j) {
+                    if (post.second[0][i] == prev.second[1][j])intersect = true;
+                }
+            }
+
+            if (intersect) {
+                prev_used_in_intersection.insert(prev.first);
+                intersected_components.push_back(prev.first);
+
+                used_componets_prev.insert(prev.first);
+                used_componets_post.insert(post.first);
+            }
+        }
+        if (!intersected_components.empty()) {
+            //если с кем-то пересеклись
+
+            std::set<int> current_regions(post.second[0].begin(), post.second[0].end());
+            std::set<int> prev_regions;
+            for (int i = 0; i < intersected_components.size(); ++i) {
+                int comp_index = intersected_components[i];
+
+                for (int j = 0; j < comp_with_prev.at(comp_index)[0].size(); ++j) {
+                    prev_regions.insert(comp_with_prev.at(comp_index)[0][j]);
+                }
+                for (int j = 0; j < comp_with_prev.at(comp_index)[1].size(); ++j) {
+                    current_regions.insert(comp_with_prev.at(comp_index)[1][j]);
+                }
+            }
+
+            final_merge[merged_regions].emplace_back(prev_regions);
+            final_merge[merged_regions].emplace_back(current_regions);
+            final_merge[merged_regions].emplace_back(post.second[1].begin(), post.second[1].end());
+            ++merged_regions;
+        } else {
+            // ни с кем не пересеклись нужно проверить, что нет связей с post_post
+            bool connected_with_post_post = false;
+            for (int i = 0; i < post.second[1].size(); ++i) {
+                if (map_to_post_post.find(post.second[1][i]) != map_to_post_post.end()) {
+                    connected_with_post_post = true;
+                    break;
+                }
+            }
+            if (connected_with_post_post)continue;
+
+            final_merge[merged_regions].emplace_back();
+            final_merge[merged_regions].emplace_back(post.second[0].begin(), post.second[0].end());
+            final_merge[merged_regions].emplace_back(post.second[1].begin(), post.second[1].end());
+            used_componets_post.insert(post.first);
+
+            ++merged_regions;
+        }
+    }
+    // теперь разберёмся с той частью второй доли, которая не слилась ни с какой компонентой
+    for (auto &prev:comp_with_prev) {
+        if (prev_used_in_intersection.find(prev.first) != prev_used_in_intersection.end())continue;
+        if (used_componets_prev.find(prev.first) != used_componets_prev.end())continue;
+        // ни с кем не пересеклись нужно проверить, что нет связей с prev_prev
+        bool connected_with_prev_prev = false;
+        for (int i = 0; i < prev.second[0].size(); ++i) {
+            if (map_to_prev_prev.find(prev.second[0][i]) != map_to_prev_prev.end()) {
+                connected_with_prev_prev = true;
+                break;
+            }
+        }
+        if (connected_with_prev_prev)continue;
+
+        final_merge[merged_regions].emplace_back(prev.second[0].begin(), prev.second[0].end());
+        final_merge[merged_regions].emplace_back(prev.second[1].begin(), prev.second[1].end());
+        final_merge[merged_regions].emplace_back();
+        used_componets_prev.insert(prev.first);
+        ++merged_regions;
+    }
+
+}
+
+void merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
+                   std::vector<std::vector<std::vector<int>>> &regions_curr,
+                   const std::vector<std::vector<std::vector<int>>> &regions_prev,
+                   const std::vector<std::vector<std::vector<int>>> &regions_post,
+                   std::vector<bool> &used_prev,
+                   std::vector<bool> &used_curr,
+                   std::vector<bool> &used_post,
+                   const std::map<int, std::vector<std::set<int>>> &final_merge) {
+
+    //добавляем слитые регионы
+    for (auto &x:final_merge) {
+        int merge_region_index = *x.second[1].begin();
+        std::vector<std::vector<int>> &merge_region = regions_curr[merge_region_index];
+        used_curr[merge_region_index] = true;
+        std::set<int>::iterator it_curr;
+        for (it_curr = ++x.second[1].begin(); it_curr != x.second[1].end(); ++it_curr) {
+            merge_region[0].insert(merge_region[0].begin(), regions_curr[*it_curr][0].begin(),
+                                   regions_curr[*it_curr][0].end());
+            merge_region[1].insert(merge_region[1].begin(), regions_curr[*it_curr][1].begin(),
+                                   regions_curr[*it_curr][1].end());
+            used_curr[*it_curr] = true;
+        }
+
+        std::set<int>::iterator it_prev;
+        for (it_prev = x.second[0].begin(); it_prev != x.second[0].end(); ++it_prev) {
+            merge_region[0].insert(merge_region[0].begin(), regions_prev[*it_prev][0].begin(),
+                                   regions_prev[*it_prev][0].end());
+            merge_region[1].insert(merge_region[1].begin(), regions_prev[*it_prev][1].begin(),
+                                   regions_prev[*it_prev][1].end());
+            used_prev[*it_prev] = true;
+        }
+
+        std::set<int>::iterator it_post;
+        for (it_post = x.second[2].begin(); it_post != x.second[2].end(); ++it_post) {
+            merge_region[0].insert(merge_region[0].begin(), regions_post[*it_post][0].begin(),
+                                   regions_post[*it_post][0].end());
+            merge_region[1].insert(merge_region[1].begin(), regions_post[*it_post][1].begin(),
+                                   regions_post[*it_post][1].end());
+            used_post[*it_post] = true;
+        }
+
+        regions.insert(regions.begin(), regions_curr.begin() + merge_region_index,
+                       regions_curr.begin() + merge_region_index + 1);
+    }
+    //добавляем остальные регионы
+    for (int i = 0; i < regions_curr.size(); ++i) {
+        if (!used_curr[i]){
+            regions.insert(regions.begin(), regions_curr.begin() + i,
+                           regions_curr.begin() + i + 1);
+        }
     }
 }
 //void
@@ -393,10 +541,37 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
                                  first_third_RegtoComp);
 
     //merge connectivity components
+    std::map<int, std::vector<std::set<int>>> final_merge1;
+    std::map<int, std::vector<std::set<int>>> final_merge2;
+    std::map<int, std::vector<std::set<int>>> final_merge3;
+    std::map<int, std::vector<std::set<int>>> final_merge4;
 
+    std::set<int> used_componets_first_second;
+    std::set<int> used_componets_second_forth;
+    std::set<int> used_componets_forth_third;
+    std::set<int> used_componets_third_first;
 
+    merge_connectivity_components(final_merge1, third_first_components, first_second_components, third_forth_RegtoComp,
+                                  second_forth_RegtoComp, used_componets_third_first, used_componets_first_second);
+    merge_connectivity_components(final_merge2, first_second_components, second_forth_components, first_third_RegtoComp,
+                                  forth_third_RegtoComp, used_componets_first_second, used_componets_second_forth);
+    merge_connectivity_components(final_merge4, second_forth_components, forth_third_components, second_first_RegtoComp,
+                                  third_first_RegtoComp, used_componets_second_forth, used_componets_forth_third);
+    merge_connectivity_components(final_merge3, forth_third_components, third_first_components, forth_second_RegtoComp,
+                                  first_second_RegtoComp, used_componets_forth_third, used_componets_third_first);
+    // actual merging
 
+    std::vector<bool> used_regions1(regions1.size());
+    std::vector<bool> used_regions2(regions2.size());
+    std::vector<bool> used_regions3(regions3.size());
+    std::vector<bool> used_regions4(regions4.size());
 
+    merge_regions(regions, regions1, regions3, regions2, used_regions3, used_regions1, used_regions2, final_merge1);
+    merge_regions(regions, regions2, regions1, regions4, used_regions1, used_regions2, used_regions4, final_merge2);
+    merge_regions(regions, regions4, regions2, regions3, used_regions2, used_regions4, used_regions3, final_merge4);
+    merge_regions(regions, regions3, regions4, regions1, used_regions4, used_regions3, used_regions1, final_merge3);
+    int x = 1;
+    return regions;
 /*
     std::map<int, int> first_to_second;
     std::map<int, int> second_to_forth;

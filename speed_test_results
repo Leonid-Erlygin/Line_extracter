@@ -8,3 +8,4 @@
 // current avg_time on test_image(4) = 11454 (N = 1000) (default, 256 x 256, parallel, with region splitter)
 // current avg_time on test_image(4) = 28528 (N = 500) (default, 256 x 256, parallel, with proper region splitter )
 // current avg_time on test_image(4) = 26075 (N = 500) (default, 256 x 256, parallel, with proper region splitter, with stitching)
+// current avg_time on test_image(4) = 26699 (N = 500) (default, 256 x 256, parallel, with proper region splitter, with epic stitching)
