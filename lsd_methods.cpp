@@ -73,7 +73,7 @@ void compute_predictions_and_confidences(int img_index, std::vector<std::vector<
 
 void evaluation(std::vector<float> &threshes, int data_set_size) {
     for (int i = 0; i < data_set_size; ++i) {
-
+        //std::cout<<i<<'\n';
         std::vector<std::vector<int>> predictions(4);
         std::vector<float> confidences;
 

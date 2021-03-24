@@ -42,7 +42,7 @@ void region_growing::find_graph(int i, std::map<int, std::vector<int>> &mapping,
                                 const std::vector<std::vector<float>> &regions_first_mean_angle,
                                 const std::vector<std::vector<float>> &regions_second_mean_angle,
                                 bool first_index) const {
-
+    int min_len = i;
     int j;
     int k;
     int l;
@@ -58,7 +58,7 @@ void region_growing::find_graph(int i, std::map<int, std::vector<int>> &mapping,
             j++;
         }
         k = i - 1;
-
+        if (k < min_len)k++;
 
         while (k != length and !line[!first_index][k]) {
             k++;
@@ -104,7 +104,7 @@ void region_growing::find_graph(int i, std::map<int, std::vector<int>> &mapping,
 
 }
 
-void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &components,
+void region_growing::find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &components,
                                   const std::map<int, std::vector<int>> &first_to_second_map,
                                   const std::map<int, std::vector<int>> &second_to_first_map,
                                   std::map<int, int> &first_to_Comp,
@@ -162,7 +162,7 @@ void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &
     }
 }
 
-void merge_connectivity_components(
+void region_growing::merge_connectivity_components(
         std::map<int, std::vector<std::set<int>>> &final_merge,
         const std::map<int, std::vector<std::vector<int>>> &comp_with_prev,
         const std::map<int, std::vector<std::vector<int>>> &comp_with_post,
@@ -255,7 +255,7 @@ void merge_connectivity_components(
 
 }
 
-void merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
+void region_growing::merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
                    std::vector<std::vector<std::vector<int>>> &regions_curr,
                    const std::vector<std::vector<std::vector<int>>> &regions_prev,
                    const std::vector<std::vector<std::vector<int>>> &regions_post,
@@ -307,130 +307,6 @@ void merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
         }
     }
 }
-//void
-//region_growing::find_mappings(int i, std::map<int, int> &mapping, int length, const std::vector<std::vector<int>> &line,
-//                              const std::vector<std::vector<float>> &regions_first_mean_angle,
-//                              const std::vector<std::vector<float>> &regions_second_mean_angle,
-//                              bool first_index) const {
-//
-//    int j;
-//    int k;
-//    int l;
-//    while (i < length) {
-//        while (i != length and !line[first_index][i]) {
-//            i++;
-//        }
-//        if (i == length)break;
-//        int i_index = line[first_index][i];
-//        j = i + 1;
-//
-//        while (j != length and line[first_index][j] == i_index) {
-//            j++;
-//        }
-//        k = i - 1;
-//        while (k != length and !line[!first_index][k]) {
-//            k++;
-//        }
-//        if (k == length)break;
-//        int k_index = line[!first_index][k];
-//        l = k + 1;
-//        while (l != length and line[!first_index][l] == k_index) {
-//            l++;
-//        }
-//
-//        if (j - k >= 0 and l - i >= 0) {
-//            int first_region_index = line[first_index][i] - 1;
-//            int second_region_index = line[!first_index][k] - 1;
-//            float V_mean_x_first = regions_first_mean_angle[0][first_region_index];
-//            float V_mean_y_first = regions_first_mean_angle[1][first_region_index];
-//            float V_mean_x_second = regions_second_mean_angle[0][second_region_index];
-//            float V_mean_y_second = regions_second_mean_angle[1][second_region_index];
-//
-//            if ((V_mean_x_first - V_mean_x_second) * (V_mean_x_first - V_mean_x_second) +
-//                (V_mean_y_first - V_mean_y_second) * (V_mean_y_first - V_mean_y_second)
-//                < tau) {
-//                mapping[first_region_index] = second_region_index;
-//            }
-//
-//        }
-//        i = j;
-//    }
-//
-//}
-//void region_growing::compute_merge_map(const std::map<int, int> &mapping,
-//                                       std::map<int, std::pair<int, int>> &merge_map_target,
-//                                       std::map<int, std::pair<int, int>> &merge_map_origin) {
-//
-//    for (auto const &x:mapping) {
-//        if (x.second == -1)continue;
-//
-//        auto it = merge_map_origin.find(x.first);
-//        if (it != merge_map_origin.end()) {
-//            merge_map_target[x.second] = std::pair<int, int>(x.first, merge_map_origin[x.first].first);
-//            merge_map_origin[x.first].first = -1;
-//        } else {
-//            merge_map_target[x.second] = std::pair<int, int>(x.first, -1);
-//        }
-//    }
-//}
-//
-//void region_growing::compute_merge_map_for_second(std::map<int, int> &third_to_first,
-//                                                  std::map<int, std::pair<int, int>> &merge_map_2,
-//                                                  const std::map<int, int> &first_to_second) {
-//    std::map<int, int> third_to_first_inv;
-//    for (auto const &x : third_to_first) {
-//        third_to_first_inv[x.second] = x.first;
-//    }
-//    for (auto const &x:first_to_second) {
-//        auto it = third_to_first_inv.find(x.first);
-//        if (it != third_to_first_inv.end()) {
-//            merge_map_2[x.second] = std::pair<int, int>(x.first, it->second);
-//            third_to_first[it->second] = -1; //do not need to use it again
-//        } else {
-//            merge_map_2[x.second] = std::pair<int, int>(x.first, -1);
-//        }
-//    }
-//}
-//
-//void reassign_regions(std::map<int, std::pair<int, int>> &merge_map,
-//                      std::vector<std::vector<std::vector<int>>> &regions_target,
-//                      const std::vector<std::vector<std::vector<int>>> &regions_prev,
-//                      const std::vector<std::vector<std::vector<int>>> &regions_prev_prev
-//) {
-//    for (auto const &x:merge_map) {
-//
-//        if (x.second.first == -1)continue;
-//        std::vector<std::vector<int>> &curr = regions_target[x.first];
-//        const std::vector<std::vector<int>> &prev = regions_prev[x.second.first];
-//
-//        curr[0].insert(curr[0].end(), prev[0].begin(), prev[0].end());
-//        curr[1].insert(curr[1].end(), prev[1].begin(), prev[1].end());
-//
-//        if (x.second.second == -1)continue;
-//        const std::vector<std::vector<int>> &prev_prev = regions_prev_prev[x.second.second];
-//
-//        curr[0].insert(curr[0].end(), prev_prev[0].begin(), prev_prev[0].end());
-//        curr[1].insert(curr[1].end(), prev_prev[1].begin(), prev_prev[1].end());
-//
-//    }
-//}
-//
-//void merge_fixed_regions(std::vector<std::vector<std::vector<int>>> &regions, std::map<int, int> &mapping,
-//                         const std::vector<std::vector<std::vector<int>>> &regions_origin) {
-//    if (mapping.empty()) {
-//        regions.insert(regions.end(), regions_origin.begin(), regions_origin.end());
-//    } else {
-//        int size = mapping.size();
-//        int prev = 0;
-//        auto it = mapping.begin();
-//        for (int m = 0; m < size; ++m) {
-//            regions.insert(regions.end(), regions_origin.begin() + prev, regions_origin.begin() + it->first);
-//            prev = it->first + 1;
-//            it++;
-//        }
-//        regions.insert(regions.end(), regions_origin.begin() + prev, regions_origin.end());
-//    }
-//}
 
 std::vector<std::vector<std::vector<int>>>
 region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, const cv::Mat &cls_bin) {
@@ -500,17 +376,17 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::map<int, std::vector<int>> first_third_map;
 
 
-    find_graph(1, first_second_map, length, vert, regions1_mean_angle, regions2_mean_angle, false);
-    find_graph(1, second_first_map, length, vert, regions2_mean_angle, regions1_mean_angle, true);
+    find_graph(0, first_second_map, length, vert, regions1_mean_angle, regions2_mean_angle, false);
+    find_graph(0, second_first_map, length, vert, regions2_mean_angle, regions1_mean_angle, true);
 
-    find_graph(length + 1, second_forth_map, double_length, horiz, regions2_mean_angle, regions4_mean_angle, false);
-    find_graph(length + 1, forth_second_map, double_length, horiz, regions4_mean_angle, regions2_mean_angle, true);
+    find_graph(length, second_forth_map, double_length, horiz, regions2_mean_angle, regions4_mean_angle, false);
+    find_graph(length, forth_second_map, double_length, horiz, regions4_mean_angle, regions2_mean_angle, true);
 
-    find_graph(length + 1, forth_third_map, double_length, vert, regions4_mean_angle, regions3_mean_angle, true);
-    find_graph(length + 1, third_forth_map, double_length, vert, regions3_mean_angle, regions4_mean_angle, false);
+    find_graph(length, forth_third_map, double_length, vert, regions4_mean_angle, regions3_mean_angle, true);
+    find_graph(length, third_forth_map, double_length, vert, regions3_mean_angle, regions4_mean_angle, false);
 
-    find_graph(1, third_first_map, length, horiz, regions3_mean_angle, regions1_mean_angle, true);
-    find_graph(1, first_third_map, length, horiz, regions1_mean_angle, regions3_mean_angle, false);
+    find_graph(0, third_first_map, length, horiz, regions3_mean_angle, regions1_mean_angle, true);
+    find_graph(0, first_third_map, length, horiz, regions1_mean_angle, regions3_mean_angle, false);
 
     //find connectivity components
     std::map<int, std::vector<std::vector<int>>> first_second_components;
@@ -570,48 +446,8 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     merge_regions(regions, regions2, regions1, regions4, used_regions1, used_regions2, used_regions4, final_merge2);
     merge_regions(regions, regions4, regions2, regions3, used_regions2, used_regions4, used_regions3, final_merge4);
     merge_regions(regions, regions3, regions4, regions1, used_regions4, used_regions3, used_regions1, final_merge3);
-    int x = 1;
     return regions;
-/*
-    std::map<int, int> first_to_second;
-    std::map<int, int> second_to_forth;
-    std::map<int, int> forth_to_third;
-    std::map<int, int> third_to_first;
-    for (int i = length; i < length * 2; ++i) {
-        std::cout << i << " : " << horiz[0][i] << " " << horiz[1][i] << '\n';
-    }
-    for (int i = 0; i < length; ++i) {
-        std::cout << i << " : " << horiz[0][i] << " " << horiz[1][i] << '\n';
-    }
-    find_mappings(1, first_to_second, length, vert, regions1_mean_angle, regions2_mean_angle, false);
-    find_mappings(length + 1, second_to_forth, double_length, horiz, regions2_mean_angle, regions4_mean_angle, false);
-    find_mappings(length + 1, forth_to_third, double_length, vert, regions4_mean_angle, regions3_mean_angle, true);
-    find_mappings(1, third_to_first, length, horiz, regions3_mean_angle, regions1_mean_angle, true);
 
-
-    here we compute merge_maps
-    std::map<int, std::pair<int, int>> merge_map_1;
-    std::map<int, std::pair<int, int>> merge_map_2;
-    std::map<int, std::pair<int, int>> merge_map_3;
-    std::map<int, std::pair<int, int>> merge_map_4;
-
-    compute_merge_map_for_second(third_to_first, merge_map_2, first_to_second);
-    compute_merge_map(second_to_forth, merge_map_4, merge_map_2);
-    compute_merge_map(forth_to_third, merge_map_3, merge_map_4);
-    compute_merge_map(third_to_first, merge_map_1, merge_map_3);
-
-    //now we reassign regions according to maps above
-    reassign_regions(merge_map_1, regions1, regions3, regions4);
-    reassign_regions(merge_map_2, regions2, regions1, regions3);
-    reassign_regions(merge_map_4, regions4, regions2, regions1);
-    reassign_regions(merge_map_3, regions3, regions4, regions2);
-
-    //and finally, we merge all regions, without deleted ones
-    merge_fixed_regions(regions, first_to_second, regions1);
-    merge_fixed_regions(regions, second_to_forth, regions2);
-    merge_fixed_regions(regions, forth_to_third, regions4);
-    merge_fixed_regions(regions, third_to_first, regions3);
-*/
 
 
 #else

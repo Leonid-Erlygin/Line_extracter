@@ -11,6 +11,7 @@
 #include <numeric>
 #include <algorithm>
 #include <thread>
+#include <set>
 
 class region_growing {
 public:
@@ -38,11 +39,29 @@ private:
 //                       const std::vector<std::vector<float>> &regions_first_mean_angle,
 //                       const std::vector<std::vector<float>> &regions_second_mean_angle,
 //                       bool first_index) const;
-
+    void merge_connectivity_components(
+            std::map<int, std::vector<std::set<int>>> &final_merge,
+            const std::map<int, std::vector<std::vector<int>>> &comp_with_prev,
+            const std::map<int, std::vector<std::vector<int>>> &comp_with_post,
+            const std::map<int, int> &map_to_prev_prev, const std::map<int, int> &map_to_post_post,
+            std::set<int> &used_componets_prev, std::set<int> &used_componets_post);
+    void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &components,
+                                      const std::map<int, std::vector<int>> &first_to_second_map,
+                                      const std::map<int, std::vector<int>> &second_to_first_map,
+                                      std::map<int, int> &first_to_Comp,
+                                      std::map<int, int> &second_to_Comp);
     void find_graph(int i, std::map<int, std::vector<int>> &mapping, int length, const std::vector<std::vector<int>> &line,
                        const std::vector<std::vector<float>> &regions_first_mean_angle,
                        const std::vector<std::vector<float>> &regions_second_mean_angle,
                        bool first_index) const;
+    void merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
+                       std::vector<std::vector<std::vector<int>>> &regions_curr,
+                       const std::vector<std::vector<std::vector<int>>> &regions_prev,
+                       const std::vector<std::vector<std::vector<int>>> &regions_post,
+                       std::vector<bool> &used_prev,
+                       std::vector<bool> &used_curr,
+                       std::vector<bool> &used_post,
+                       const std::map<int, std::vector<std::set<int>>> &final_merge);
 
     static void
     fill_horiz_and_vert(std::vector<std::vector<std::vector<int>>> const &regions, std::vector<std::vector<int>> &vert,
