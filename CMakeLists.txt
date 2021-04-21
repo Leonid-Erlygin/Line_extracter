@@ -11,4 +11,5 @@ add_executable(Line_extracter main.cpp compute_eigen_coords.cpp compute_eigen_co
         lsd_methods.cpp lsd_methods.h)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
+set(OpenCV_LIBS opencv_core opencv_imgproc opencv_highgui opencv_imgcodecs)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
