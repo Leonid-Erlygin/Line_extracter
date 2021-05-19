@@ -11,3 +11,4 @@
 // current avg_time on test_image(4) = 26203 (N = 500) (default, 256 x 256, parallel, with proper region splitter, with epic stitching)
 // current avg_time on selected_test(5) = 16501 (N = 500) (default, 256 x 256, parallel, with proper region splitter, with epic stitching, with region parallel)
 // current avg_time on selected_test(avg) = 10456(N = 500)(default, 256 x 256, parallel, with proper region splitter, with epic stitching, with region parallel)
+// current avg_time on wireframe(1) = 25264(N = 500)(default, almost orig size, parallel, with proper region splitter, with epic stitching, with region parallel)

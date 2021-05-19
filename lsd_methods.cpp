@@ -59,18 +59,19 @@ void compute_predictions_and_confidences_one_thread(std::vector<std::vector<int>
     }
 }
 
-void load_data(int img_index, cv::Mat &cls_map, cv::Mat &angle_map, const std::string& dataset_name) {
+void load_data(int img_index, cv::Mat &cls_map, cv::Mat &angle_map, const std::string &dataset_path) {
     cls_map = imread(
-            R"(C:\home\lsd_local\datasets\)" + dataset_name + R"(\raw_pred\cls_map)" + std::to_string(img_index) +
+            dataset_path + R"(\raw_pred\cls_map)" + std::to_string(img_index) +
             ".tiff",
             cv::IMREAD_ANYDEPTH);
     angle_map = imread(
-            R"(C:\home\lsd_local\datasets\)" + dataset_name + R"(\raw_pred\angle_map)" + std::to_string(img_index) +
+            dataset_path + R"(\raw_pred\angle_map)" + std::to_string(img_index) +
             ".tiff",
             cv::IMREAD_ANYDEPTH);
 }
 
-void compute_predictions_and_confidences(const cv::Mat &cls_map,const cv::Mat &angle_map, std::vector<std::vector<int>> &predictions,
+void compute_predictions_and_confidences(const cv::Mat &cls_map, const cv::Mat &angle_map,
+                                         std::vector<std::vector<int>> &predictions,
                                          std::vector<float> &confidences) {
 
 
@@ -128,26 +129,30 @@ void compute_predictions_and_confidences(const cv::Mat &cls_map,const cv::Mat &a
 
 }
 
-void evaluation(std::vector<float> &threshes, int data_set_size, const std::string &dataset_name) {
+void evaluation(std::vector<float> &threshes, int data_set_size, const std::string &dataset_path) {
     for (int i = 0; i < data_set_size; ++i) {
         //std::cout<<i<<'\n';
         std::vector<std::vector<int>> predictions(4);
         std::vector<float> confidences;
         cv::Mat cls_map;
         cv::Mat angle_map;
-        load_data(i, cls_map, angle_map, dataset_name);
+        load_data(i, cls_map, angle_map, dataset_path);
         compute_predictions_and_confidences(cls_map, angle_map, predictions, confidences);
 
         for (auto &thresh:threshes) {
             std::ofstream file;
 
             std::string path =
-                    std::string(R"(C:\home\lsd_local\datasets\)" + dataset_name + R"(\cpp_prediction\)") +
+                    std::string(dataset_path + R"(\cpp_prediction\)") +
                     std::to_string(thresh);
-            mkdir(path.c_str());
+//            std::cout<<path<<'\n';
+//            if (mkdir(path.c_str()) == -1){
+//                std::cout<<"Directory not created"<<'\n';
+//                exit(1);
+//            }
             file.open(
                     path + std::string("/") + std::to_string(i) +
-                    ".csv");
+                    ".csv", std::ofstream::out);
             for (int j = 0; j < predictions[0].size(); ++j) {
                 if (confidences[j] > thresh) {
                     file << predictions[0][j] << " " << predictions[1][j] << " " << predictions[2][j] << " "
@@ -160,10 +165,10 @@ void evaluation(std::vector<float> &threshes, int data_set_size, const std::stri
     }
 }
 
-size_t speed_test(int img_index, const std::string &dataset_name, int N) {
+size_t speed_test(int img_index, const std::string &dataset_path, int N) {
     cv::Mat cls_map;
     cv::Mat angle_map;
-    load_data(img_index, cls_map, angle_map, dataset_name);
+    load_data(img_index, cls_map, angle_map, dataset_path);
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (int i = 0; i < N; ++i) {
@@ -178,15 +183,15 @@ size_t speed_test(int img_index, const std::string &dataset_name, int N) {
     return std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / N;
 }
 
-void compute_and_draw_image(int img_index, float thresh, int img_size, const std::string &dataset_name) {
+void compute_and_draw_image(int img_index, float thresh, const std::string &dataset_path) {
     std::vector<std::vector<int>> predictions(4);
     std::vector<float> confidences;
     cv::Mat cls_map;
     cv::Mat angle_map;
-    load_data(img_index, cls_map, angle_map, dataset_name);
+    load_data(img_index, cls_map, angle_map, dataset_path);
     compute_predictions_and_confidences(cls_map, angle_map, predictions, confidences);
 
-    cv::Mat final(img_size * 2, img_size * 2, CV_8UC1, cv::Scalar(0, 0, 0));
+    cv::Mat final(cls_map.rows * 2, cls_map.cols * 2, CV_8UC1, cv::Scalar(0, 0, 0));
     for (int p = 0; p < predictions[0].size(); ++p) {
         if (confidences[p] > thresh) {
             line(final, cv::Point(predictions[0][p] * 2, predictions[1][p] * 2),

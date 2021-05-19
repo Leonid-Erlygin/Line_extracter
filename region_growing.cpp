@@ -19,18 +19,21 @@ region_growing::region_growing(int r, float tau, float deviation_thresh, int min
 
 void region_growing::fill_horiz_and_vert(std::vector<std::vector<std::vector<int>>> const &regions,
                                          std::vector<std::vector<int>> &vert,
-                                         std::vector<std::vector<int>> &horiz, int length, int x_shift, int y_shift,
+                                         std::vector<std::vector<int>> &horiz,
+                                         int length_row,
+                                         int length_col,
+                                         int x_shift,
+                                         int y_shift,
                                          int horiz_idx, int vert_idx) {
     for (int i = 0; i < regions.size(); ++i) {
         int n = regions[i][0].size();
         for (int j = 0; j < n; ++j) {
             int x = regions[i][0][j];
             int y = regions[i][1][j];
-            if (x == length - x_shift) {
+            if (x == length_row - x_shift) {
                 horiz[horiz_idx][y] = i + 1;
-                int p = 1;
             }
-            if (y == length - y_shift) {
+            if (y == length_col - y_shift) {
                 vert[vert_idx][x] = i + 1;
             }
         }
@@ -105,10 +108,10 @@ void region_growing::find_graph(int i, std::map<int, std::vector<int>> &mapping,
 }
 
 void region_growing::find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &components,
-                                  const std::map<int, std::vector<int>> &first_to_second_map,
-                                  const std::map<int, std::vector<int>> &second_to_first_map,
-                                  std::map<int, int> &first_to_Comp,
-                                  std::map<int, int> &second_to_Comp) {
+                                                  const std::map<int, std::vector<int>> &first_to_second_map,
+                                                  const std::map<int, std::vector<int>> &second_to_first_map,
+                                                  std::map<int, int> &first_to_Comp,
+                                                  std::map<int, int> &second_to_Comp) {
     std::set<int> has_been_visited_first;
     std::set<int> has_been_visited_second;
     int i = 0; // индекс очередной компоненты
@@ -256,13 +259,13 @@ void region_growing::merge_connectivity_components(
 }
 
 void region_growing::merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
-                   std::vector<std::vector<std::vector<int>>> &regions_curr,
-                   const std::vector<std::vector<std::vector<int>>> &regions_prev,
-                   const std::vector<std::vector<std::vector<int>>> &regions_post,
-                   std::vector<bool> &used_prev,
-                   std::vector<bool> &used_curr,
-                   std::vector<bool> &used_post,
-                   const std::map<int, std::vector<std::set<int>>> &final_merge) {
+                                   std::vector<std::vector<std::vector<int>>> &regions_curr,
+                                   const std::vector<std::vector<std::vector<int>>> &regions_prev,
+                                   const std::vector<std::vector<std::vector<int>>> &regions_post,
+                                   std::vector<bool> &used_prev,
+                                   std::vector<bool> &used_curr,
+                                   std::vector<bool> &used_post,
+                                   const std::map<int, std::vector<std::set<int>>> &final_merge) {
 
     //добавляем слитые регионы
     for (auto &x:final_merge) {
@@ -301,7 +304,7 @@ void region_growing::merge_regions(std::vector<std::vector<std::vector<int>>> &r
     }
     //добавляем остальные регионы
     for (int i = 0; i < regions_curr.size(); ++i) {
-        if (!used_curr[i]){
+        if (!used_curr[i]) {
             regions.insert(regions.begin(), regions_curr.begin() + i,
                            regions_curr.begin() + i + 1);
         }
@@ -350,14 +353,16 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
 #if SAW
     std::vector<std::vector<int>> vert(2, std::vector<int>(cls_map.rows));
     std::vector<std::vector<int>> horiz(2, std::vector<int>(cls_map.cols));
-    int length = cls_map.rows / 2;
-    int double_length = length * 2;
+    int length_row = cls_map.rows / 2;
+    int double_length_row = cls_map.rows;
+    int length_col = cls_map.cols / 2;
+    int double_length_cols = cls_map.cols;
 
     //fill values
-    fill_horiz_and_vert(regions1, vert, horiz, length, 1, 1, 0, 0);
-    fill_horiz_and_vert(regions2, vert, horiz, length, 1, 0, 0, 1);
-    fill_horiz_and_vert(regions3, vert, horiz, length, 0, 1, 1, 0);
-    fill_horiz_and_vert(regions4, vert, horiz, length, 0, 0, 1, 1);
+    fill_horiz_and_vert(regions1, vert, horiz, length_row, length_col, 1, 1, 0, 0);
+    fill_horiz_and_vert(regions2, vert, horiz, length_row, length_col, 1, 0, 0, 1);
+    fill_horiz_and_vert(regions3, vert, horiz, length_row, length_col, 0, 1, 1, 0);
+    fill_horiz_and_vert(regions4, vert, horiz, length_row, length_col, 0, 0, 1, 1);
 
 //    for (int i = length; i < length * 2; ++i) {
 //        std::cout << i << " : " << horiz[0][i] << " " << horiz[1][i] << '\n';
@@ -376,17 +381,17 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     std::map<int, std::vector<int>> first_third_map;
 
 
-    find_graph(0, first_second_map, length, vert, regions1_mean_angle, regions2_mean_angle, false);
-    find_graph(0, second_first_map, length, vert, regions2_mean_angle, regions1_mean_angle, true);
+    find_graph(0, first_second_map, length_row, vert, regions1_mean_angle, regions2_mean_angle, false);
+    find_graph(0, second_first_map, length_row, vert, regions2_mean_angle, regions1_mean_angle, true);
 
-    find_graph(length, second_forth_map, double_length, horiz, regions2_mean_angle, regions4_mean_angle, false);
-    find_graph(length, forth_second_map, double_length, horiz, regions4_mean_angle, regions2_mean_angle, true);
+    find_graph(length_col, second_forth_map, double_length_cols, horiz, regions2_mean_angle, regions4_mean_angle, false);
+    find_graph(length_col, forth_second_map, double_length_cols, horiz, regions4_mean_angle, regions2_mean_angle, true);
 
-    find_graph(length, forth_third_map, double_length, vert, regions4_mean_angle, regions3_mean_angle, true);
-    find_graph(length, third_forth_map, double_length, vert, regions3_mean_angle, regions4_mean_angle, false);
+    find_graph(length_row, forth_third_map, double_length_row, vert, regions4_mean_angle, regions3_mean_angle, true);
+    find_graph(length_row, third_forth_map, double_length_row, vert, regions3_mean_angle, regions4_mean_angle, false);
 
-    find_graph(0, third_first_map, length, horiz, regions3_mean_angle, regions1_mean_angle, true);
-    find_graph(0, first_third_map, length, horiz, regions1_mean_angle, regions3_mean_angle, false);
+    find_graph(0, third_first_map, length_col, horiz, regions3_mean_angle, regions1_mean_angle, true);
+    find_graph(0, first_third_map, length_col, horiz, regions1_mean_angle, regions3_mean_angle, false);
 
     //find connectivity components
     std::map<int, std::vector<std::vector<int>>> first_second_components;
@@ -447,7 +452,6 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     merge_regions(regions, regions4, regions2, regions3, used_regions2, used_regions4, used_regions3, final_merge4);
     merge_regions(regions, regions3, regions4, regions1, used_regions4, used_regions3, used_regions1, final_merge3);
     return regions;
-
 
 
 #else

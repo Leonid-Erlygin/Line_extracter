@@ -63,6 +63,9 @@ std::vector<std::vector<float>> compute_eigen_coords::compute_transformation_mat
             mxx += (x_i * x_i);
             myy += (y_i * y_i);
             mxy += (x_i * y_i);
+//            mxx += (y_i * y_i);
+//            myy += (x_i * x_i);
+//            mxy += -(x_i * y_i);
         }
         mxx = mxx / n;
         myy = myy / n;
@@ -88,6 +91,9 @@ std::vector<std::vector<float>> compute_eigen_coords::compute_transformation_mat
             mxx += (x_i * x_i * weight);
             myy += (y_i * y_i * weight);
             mxy += (x_i * y_i * weight);
+//            mxx += (y_i * y_i * weight);
+//            myy += (x_i * x_i * weight);
+//            mxy += -(x_i * y_i * weight);
         }
         mxx = mxx / S;
         myy = myy / S;

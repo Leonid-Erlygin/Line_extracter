@@ -45,15 +45,19 @@ private:
             const std::map<int, std::vector<std::vector<int>>> &comp_with_post,
             const std::map<int, int> &map_to_prev_prev, const std::map<int, int> &map_to_post_post,
             std::set<int> &used_componets_prev, std::set<int> &used_componets_post);
+
     void find_connectivity_components(std::map<int, std::vector<std::vector<int>>> &components,
                                       const std::map<int, std::vector<int>> &first_to_second_map,
                                       const std::map<int, std::vector<int>> &second_to_first_map,
                                       std::map<int, int> &first_to_Comp,
                                       std::map<int, int> &second_to_Comp);
-    void find_graph(int i, std::map<int, std::vector<int>> &mapping, int length, const std::vector<std::vector<int>> &line,
-                       const std::vector<std::vector<float>> &regions_first_mean_angle,
-                       const std::vector<std::vector<float>> &regions_second_mean_angle,
-                       bool first_index) const;
+
+    void
+    find_graph(int i, std::map<int, std::vector<int>> &mapping, int length, const std::vector<std::vector<int>> &line,
+               const std::vector<std::vector<float>> &regions_first_mean_angle,
+               const std::vector<std::vector<float>> &regions_second_mean_angle,
+               bool first_index) const;
+
     void merge_regions(std::vector<std::vector<std::vector<int>>> &regions,
                        std::vector<std::vector<std::vector<int>>> &regions_curr,
                        const std::vector<std::vector<std::vector<int>>> &regions_prev,
@@ -65,7 +69,8 @@ private:
 
     static void
     fill_horiz_and_vert(std::vector<std::vector<std::vector<int>>> const &regions, std::vector<std::vector<int>> &vert,
-                        std::vector<std::vector<int>> &horiz, int length, int x_shift, int y_shift, int horiz_idx,
+                        std::vector<std::vector<int>> &horiz, int length_row,
+                        int length_col, int x_shift, int y_shift, int horiz_idx,
                         int vert_idx);
 
     std::pair<std::vector<std::vector<int>>, std::pair<float, float>>
