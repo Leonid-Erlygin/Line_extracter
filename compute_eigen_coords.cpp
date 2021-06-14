@@ -17,10 +17,10 @@ std::vector<std::vector<float>> compute_eigen_coords::apply_trans(const std::vec
         float y = (region[1][i] - y_mean);
         new_coords[0][i] = cos_alpha * x + sin_alpha * y;
         new_coords[1][i] = -sin_alpha * x + cos_alpha * y;
-        float weight = 1;
-        if (cls_map.data!=NULL) {
-            weight = cls_map.at<float>(region[0][i], region[1][i]);
-        }
+//        float weight;
+//        if (cls_map.data!=NULL) {
+//            weight = cls_map.at<float>(region[0][i], region[1][i]);
+//        }
     }
     return new_coords;
 }

@@ -132,6 +132,9 @@ void compute_predictions_and_confidences(const cv::Mat &cls_map, const cv::Mat &
 void evaluation(std::vector<float> &threshes, int data_set_size, const std::string &dataset_path) {
     for (int i = 0; i < data_set_size; ++i) {
         //std::cout<<i<<'\n';
+//        if (i==14){
+//            int x = 1;
+//        }
         std::vector<std::vector<int>> predictions(4);
         std::vector<float> confidences;
         cv::Mat cls_map;
@@ -142,16 +145,22 @@ void evaluation(std::vector<float> &threshes, int data_set_size, const std::stri
         for (auto &thresh:threshes) {
             std::ofstream file;
 
-            std::string path =
+            std::string path1 =
+                    std::string(dataset_path + R"(\cpp_prediction)");
+            std::string path2 =
                     std::string(dataset_path + R"(\cpp_prediction\)") +
                     std::to_string(thresh);
-//            std::cout<<path<<'\n';
-//            if (mkdir(path.c_str()) == -1){
-//                std::cout<<"Directory not created"<<'\n';
-//                exit(1);
-//            }
+            //std::cout<<path<<'\n';
+            if (mkdir(path1.c_str()) == -1){
+                //std::cout<<"Directory not created"<<'\n';
+                //exit(1);
+            }
+            if (mkdir(path2.c_str()) == -1){
+                //std::cout<<"Directory not created"<<'\n';
+                //exit(1);
+            }
             file.open(
-                    path + std::string("/") + std::to_string(i) +
+                    path2 + std::string("/") + std::to_string(i) +
                     ".csv", std::ofstream::out);
             for (int j = 0; j < predictions[0].size(); ++j) {
                 if (confidences[j] > thresh) {
@@ -165,7 +174,7 @@ void evaluation(std::vector<float> &threshes, int data_set_size, const std::stri
     }
 }
 
-size_t speed_test(int img_index, const std::string &dataset_path, int N) {
+double_t speed_test(int img_index, const std::string &dataset_path, int N) {
     cv::Mat cls_map;
     cv::Mat angle_map;
     load_data(img_index, cls_map, angle_map, dataset_path);
@@ -180,7 +189,7 @@ size_t speed_test(int img_index, const std::string &dataset_path, int N) {
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    return std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / N;
+    return double_t(std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) / N;
 }
 
 void compute_and_draw_image(int img_index, float thresh, const std::string &dataset_path) {
