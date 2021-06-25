@@ -100,14 +100,15 @@ std::vector<std::vector<float>> compute_eigen_coords::compute_transformation_mat
         mxy = mxy / S;
     }
     float M[2][2] = {
-            {myy, mxy},
-            {mxy, mxx}
+            {mxx, mxy},
+            {mxy, myy}
     };
-    float lamb = (M[0][0] + M[1][1] - sqrt(4 * M[0][1] * M[0][1] + (M[0][0] - M[1][1]) * (M[0][0] - M[1][1]))) / 2;
+    float lamb = (M[1][1] + M[0][0] + sqrt(4 * M[0][1] * M[0][1] + (M[0][0] - M[1][1]) * (M[0][0] - M[1][1]))) / 2;
     float direction[2] = {M[0][1], (lamb - M[0][0])};
 
     float f = (direction[0] >= 0) ? 1 : -1;
-    float alpha = acos(f * (direction[1]) / pow(pow(direction[1], 2) + pow(direction[0], 2), 0.5)) - M_PI / 2;
+    float theta = acos(f * (direction[1]) / pow(pow(direction[1], 2) + pow(direction[0], 2), 0.5));
+    float alpha =  M_PI / 2 - theta;
 
     float sin_alpha = std::sin(alpha);
     float cos_alpha = std::cos(alpha);

@@ -16,9 +16,9 @@
 
 class region_splitter {
 public:
-    region_splitter(double bandwidth,
+    region_splitter(float bandwidth,
                     int bins_size,
-                    int discret_size,
+                    int discrete_size,
                     int order);
 
     std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<float>>>>
@@ -27,9 +27,9 @@ public:
                                                      const cv::Mat &cls_map) const;
 
 private:
-    double bandwidth = 1;
+    float bandwidth = 1;
     int bins_size = 15;
-    int discret_size = 15;
+    int discrete_size = 15;
     int order = 1;
 };
 

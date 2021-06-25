@@ -384,7 +384,8 @@ region_growing::get_regions(const cv::Mat &cls_map, const cv::Mat &angle_map, co
     find_graph(0, first_second_map, length_row, vert, regions1_mean_angle, regions2_mean_angle, false);
     find_graph(0, second_first_map, length_row, vert, regions2_mean_angle, regions1_mean_angle, true);
 
-    find_graph(length_col, second_forth_map, double_length_cols, horiz, regions2_mean_angle, regions4_mean_angle, false);
+    find_graph(length_col, second_forth_map, double_length_cols, horiz, regions2_mean_angle, regions4_mean_angle,
+               false);
     find_graph(length_col, forth_second_map, double_length_cols, horiz, regions4_mean_angle, regions2_mean_angle, true);
 
     find_graph(length_row, forth_third_map, double_length_row, vert, regions4_mean_angle, regions3_mean_angle, true);
@@ -550,6 +551,7 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
     float sin0 = std::sin(ang);
     float V_mean_x = cos0 * cos0 - sin0 * sin0;
     float V_mean_y = 2 * sin0 * cos0;
+    float Norm_region = 1;
 
     region[0].push_back(root[0]);
     region[1].push_back(root[1]);
@@ -595,8 +597,12 @@ region_growing::region_grouping(int root[2], const cv::Mat &cls_map, const cv::M
                 U[x][y] = true;
 
                 region_len++;
-                V_mean_x = (V_mean_x * (region_len - 1) + V_x) / region_len;
-                V_mean_y = (V_mean_y * (region_len - 1) + V_y) / region_len;
+                auto new_Norm_region = static_cast<float > (std::sqrt(
+                        1 + Norm_region * Norm_region + 2 * Norm_region * (V_mean_x * V_x + V_mean_y * V_y)));
+
+                V_mean_x = (V_mean_x * Norm_region + V_x) / new_Norm_region;
+                V_mean_y = (V_mean_y * Norm_region + V_y) / new_Norm_region;
+                Norm_region = new_Norm_region;
 
                 region_mean = (region_mean * (region_len - 1) + probability) / region_len;
             }

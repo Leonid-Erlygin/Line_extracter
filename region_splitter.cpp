@@ -6,10 +6,10 @@
 #include <iostream>
 #include "region_splitter.h"
 
-region_splitter::region_splitter(double bandwidth,
+region_splitter::region_splitter(float bandwidth,
                                  int bins_size,
-                                 int discret_size,
-                                 int order) : bandwidth(bandwidth), bins_size(bins_size), discret_size(discret_size),
+                                 int discrete_size,
+                                 int order) : bandwidth(bandwidth), bins_size(bins_size), discrete_size(discrete_size),
                                               order(order) {
 
 }
@@ -41,8 +41,8 @@ region_splitter::get_splitted_regions_with_conf_and_weighted_mean(const std::vec
     if (max_y - min_y > 0.000001) {
         double y_increment = (max_y - min_y) / bins_size;
 
-        std::vector<int> discret_count(discret_size + 1);
-        double y_increment_discret = (max_y - min_y) / discret_size + 0.000000000001;
+        std::vector<int> discret_count(discrete_size + 1);
+        double y_increment_discret = (max_y - min_y) / discrete_size + 0.000000000001;
         double r = min_y + y_increment_discret;
 
         int j = 0;
