@@ -33,29 +33,51 @@ void compute_predictions_and_confidences_one_thread(std::vector<std::vector<int>
         std::vector<std::vector<float>> A = compute_eigen.compute_transformation_matrix(region, cls_map);
         std::vector<std::vector<float>> new_coords = compute_eigen.apply_trans(A, region, cls_map);
 
-        std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<float>>>> splitted_regions_and_conf = rs.get_splitted_regions_with_conf_and_weighted_mean(
-                region, new_coords, cls_map);
 
-        std::vector<std::vector<float>> &means_and_conf = splitted_regions_and_conf.first;
-        std::vector<std::vector<std::vector<float>>> &splitted_regions = splitted_regions_and_conf.second;
-
-        for (int j = 0; j < splitted_regions.size(); ++j) {
-            float region_mean = means_and_conf[0][j];
-            float confidence = means_and_conf[1][j];
-
-            std::vector<std::vector<float>> points_new = segment_extractor::extract(splitted_regions[j],
-                                                                                    region_mean
-            );
-
-            std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
-
-
-            predictions[0].push_back(int(points[1][0]));
-            predictions[1].push_back(int(points[0][0]));
-            predictions[2].push_back(int(points[1][1]));
-            predictions[3].push_back(int(points[0][1]));
-            confidences.push_back(confidence);
+        //here we do not use splitter:
+        float region_mean = 0;
+        float confidence = 0;
+        std::vector<float> &y = new_coords[1];
+        for (int j = 0; j < y.size(); ++j) {
+            float conf = cls_map.at<float>(region[0][j], region[1][j]);
+            region_mean += (y[j] * conf);
+            confidence += conf;
         }
+        region_mean = region_mean / confidence;
+        confidence = confidence / y.size();
+        std::vector<std::vector<float>> points_new = segment_extractor::extract(new_coords, region_mean);
+        std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
+
+        predictions[0].push_back(int(points[1][0]));
+        predictions[1].push_back(int(points[0][0]));
+        predictions[2].push_back(int(points[1][1]));
+        predictions[3].push_back(int(points[0][1]));
+        confidences.push_back(confidence);
+
+        //here we use splitter:
+//        std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<float>>>>
+//                splitted_regions_and_conf = rs.get_splitted_regions_with_conf_and_weighted_mean(region, new_coords,
+//                                                                                                cls_map);
+//        std::vector<std::vector<float>> &means_and_conf = splitted_regions_and_conf.first;
+//        std::vector<std::vector<std::vector<float>>> &splitted_regions = splitted_regions_and_conf.second;
+//        for (int j = 0; j < splitted_regions.size(); ++j) {
+//            float region_mean = means_and_conf[0][j];
+//            float confidence = means_and_conf[1][j];
+//
+//            std::vector<std::vector<float>> points_new = segment_extractor::extract(splitted_regions[j],
+//                                                                                    region_mean
+//            );
+//
+//            std::vector<std::vector<float>> points = compute_eigen.apply_inverse_trans(A, points_new);
+//
+//            predictions[0].push_back(int(points[1][0]));
+//            predictions[1].push_back(int(points[0][0]));
+//            predictions[2].push_back(int(points[1][1]));
+//            predictions[3].push_back(int(points[0][1]));
+//            confidences.push_back(confidence);
+//       }
+
+
     }
 }
 
@@ -137,10 +159,7 @@ void compute_predictions_and_confidences(const cv::Mat &cls_map, const cv::Mat &
 void evaluation(std::vector<float> &threshes, int data_set_size, const std::string &dataset_path,
                 std::map<std::string, float> &algorithm_params) {
     for (int i = 0; i < data_set_size; ++i) {
-        //std::cout<<i<<'\n';
-//        if (i==14){
-//            int x = 1;
-//        }
+
         std::vector<std::vector<int>> predictions(4);
         std::vector<float> confidences;
         cv::Mat cls_map;
@@ -151,28 +170,28 @@ void evaluation(std::vector<float> &threshes, int data_set_size, const std::stri
         for (auto &thresh:threshes) {
             std::ofstream file;
 
-            std::string path1 =
-                    std::string(dataset_path + R"(\cpp_prediction)");
-            std::string path2 =
-                    std::string(dataset_path + R"(\cpp_prediction\)") +
-                    "b" + std::to_string(static_cast<int>(algorithm_params["bins size"])) +
-                    "d" + std::to_string(static_cast<int>(algorithm_params["discrete size"]));
-            std::string path3 =
-                    std::string(dataset_path + R"(\cpp_prediction\)") +
-                    "b" + std::to_string(static_cast<int>(algorithm_params["bins size"])) +
-                    "d" + std::to_string(static_cast<int>(algorithm_params["discrete size"])) + R"(\)" + std::to_string(thresh);
-            //std::cout<<path<<'\n';
-            if (mkdir(path1.c_str()) == -1) {
 
-            }
-            if (mkdir(path2.c_str()) == -1) {
+            std::string last_cut = dataset_path.substr(0, dataset_path.rfind('\\'));
+            std::string sub_foulder_name = dataset_path.substr(dataset_path.rfind('\\')+ 1, dataset_path.size());
+            std::string model_name = last_cut.substr(last_cut.rfind('\\')+1, last_cut.size());
+            std::string foulder_path = last_cut.substr(0, last_cut.rfind('\\'));
 
-            }
-            if (mkdir(path3.c_str()) == -1) {
 
-            }
+            std::string path1  = foulder_path + R"(\)" + model_name + R"(_cpp\)";
+            std::string path2 = path1 + sub_foulder_name;
+            std::string path3 = path2 +  R"(\cpp_prediction\)";
+            std::string path4 = path3 +  std::to_string(thresh);
+
+
+            mkdir(path1.c_str());
+            mkdir(path2.c_str());
+            mkdir(path3.c_str());
+            mkdir(path4.c_str());
+
+            //exit(0);
+
             file.open(
-                    path3 + R"(\)" + std::to_string(i) +
+                    path4 + R"(\)" + std::to_string(i) +
                     ".csv", std::ofstream::out);
             for (int j = 0; j < predictions[0].size(); ++j) {
                 if (confidences[j] > thresh) {
